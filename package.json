@@ -1,0 +1,30 @@
+{
+  "name": "ambient-audio-mixer",
+  "version": "1.0.0",
+  "description": "A lightweight JavaScript library for creating dynamic, atmospheric soundscapes",
+  "main": "ambient-mixer.js",
+  "files": [
+    "ambient-mixer.js",
+    "ambient-mixer.css",
+    "README.md"
+  ],
+  "scripts": {
+    "serve": "npx serve ."
+  },
+  "keywords": [
+    "audio",
+    "ambient",
+    "mixer",
+    "soundscape",
+    "atmosphere",
+    "music",
+    "web-audio"
+  ],
+  "author": "Daniel Lopez-Cope",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tubby-custard23/ambient-audio-mixer"
+  },
+  "homepage": "https://github.com/tubby-custard23/ambient-audio-mixer#readme"
+}

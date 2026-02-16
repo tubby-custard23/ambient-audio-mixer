@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ambient Audio Mixer - Example</title>
+  <link rel="stylesheet" href="ambient-mixer.css">
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f0f23 100%);
+      min-height: 100vh;
+      margin: 0;
+      padding: 2rem;
+      color: white;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    h1 {
+      font-weight: 300;
+      margin-bottom: 0.5rem;
+    }
+    .subtitle {
+      color: rgba(255, 255, 255, 0.6);
+      margin-bottom: 2rem;
+    }
+    .demo-section {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      padding: 2rem;
+      margin-bottom: 2rem;
+    }
+    .demo-section h2 {
+      font-size: 1.2rem;
+      font-weight: 400;
+      margin-top: 0;
+      margin-bottom: 1rem;
+    }
+    .mixer-demo {
+      display: flex;
+      justify-content: center;
+      padding: 2rem;
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 8px;
+    }
+    .status {
+      margin-top: 1rem;
+      padding: 1rem;
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 8px;
+      font-size: 0.9rem;
+    }
+    .status-label {
+      color: rgba(255, 255, 255, 0.5);
+      margin-right: 0.5rem;
+    }
+    .status-value {
+      color: rgba(180, 160, 220, 0.9);
+    }
+    code {
+      background: rgba(0, 0, 0, 0.3);
+      padding: 0.2rem 0.4rem;
+      border-radius: 4px;
+      font-size: 0.85rem;
+    }
+    pre {
+      background: rgba(0, 0, 0, 0.4);
+      padding: 1rem;
+      border-radius: 8px;
+      overflow-x: auto;
+      font-size: 0.85rem;
+      line-height: 1.5;
+    }
+    pre code {
+      background: none;
+      padding: 0;
+    }
+    .note {
+      background: rgba(100, 80, 140, 0.2);
+      border-left: 3px solid rgba(140, 120, 180, 0.5);
+      padding: 1rem;
+      margin: 1rem 0;
+      font-size: 0.9rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Ambient Audio Mixer</h1>
+    <p class="subtitle">A dynamic audio mixer for creating atmospheric soundscapes</p>
+
+    <div class="demo-section">
+      <h2>Live Demo</h2>
+      <p>Click the speaker icon to start the ambient mix. Use the settings to adjust volume and mood.</p>
+
+      <div class="mixer-demo">
+        <!-- Mixer Controls -->
+        <div class="ambient-mixer-controls" id="mixer-controls">
+          <button class="ambient-mixer-toggle" id="mixer-toggle">
+            <span class="icon-off">🔇</span>
+            <span class="icon-on">🔊</span>
+          </button>
+          <button class="ambient-mixer-settings-btn" id="mixer-settings-btn">⚙️</button>
+          <div class="ambient-mixer-panel" id="mixer-panel">
+            <div class="ambient-mixer-volume">
+              <label>Volume</label>
+              <input type="range" id="mixer-volume" min="0" max="100" value="50">
+            </div>
+            <div class="ambient-mixer-mood">
+              <label>Mood</label>
+              <select id="mixer-mood">
+                <option value="auto">Auto</option>
+                <!-- Mood options will be added dynamically -->
+              </select>
+            </div>
+            <div class="ambient-mixer-current-mood" id="mixer-current-mood">
+              Current: --
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="status">
+        <span class="status-label">Status:</span>
+        <span class="status-value" id="status-playing">Stopped</span>
+        <br>
+        <span class="status-label">Current Mood:</span>
+        <span class="status-value" id="status-mood">--</span>
+      </div>
+
+      <div class="note">
+        <strong>Note:</strong> This demo uses placeholder audio files. Replace the paths in the code with your own royalty-free audio tracks.
+      </div>
+    </div>
+
+    <div class="demo-section">
+      <h2>Quick Start</h2>
+      <pre><code>&lt;!-- 1. Include the CSS and JS --&gt;
+&lt;link rel="stylesheet" href="ambient-mixer.css"&gt;
+&lt;script src="ambient-mixer.js"&gt;&lt;/script&gt;
+
+&lt;!-- 2. Create the mixer --&gt;
+&lt;script&gt;
+const mixer = new AmbientMixer({
+  masterVolume: 0.5,
+  fadeSpeed: 0.02,
+  moodDuration: { min: 20000, max: 40000 }
+});
+
+// 3. Define your audio tracks
+mixer.init({
+  night: '/audio/night-ambience.mp3',
+  rain: '/audio/rain.mp3',
+  thunder: '/audio/thunder.mp3',
+  piano: '/audio/soft-piano.mp3',
+  strings: '/audio/strings.mp3'
+});
+
+// 4. Define mood presets (track volume combinations)
+mixer.defineMoods({
+  calm: { night: 0.4, piano: 0.2 },
+  rainy: { night: 0.3, rain: 0.4, piano: 0.15 },
+  stormy: { night: 0.2, rain: 0.3, thunder: 0.4, strings: 0.1 },
+  peaceful: { night: 0.35, piano: 0.25 },
+  intense: { rain: 0.5, thunder: 0.4, strings: 0.2 }
+});
+
+// 5. Start playing
+mixer.play();
+&lt;/script&gt;</code></pre>
+    </div>
+
+    <div class="demo-section">
+      <h2>API Reference</h2>
+
+      <h3 style="font-size: 1rem; margin-top: 1.5rem;">Methods</h3>
+      <pre><code>// Initialize with audio tracks
+mixer.init({ trackName: '/path/to/audio.mp3', ... })
+
+// Define mood presets
+mixer.defineMoods({ moodName: { track1: 0.5, track2: 0.3 }, ... })
+
+// Playback controls
+mixer.play()           // Start the mixer
+mixer.stop()           // Stop the mixer
+mixer.toggle()         // Toggle play/stop
+
+// Mood controls
+mixer.setMood('calm')  // Set a specific mood
+mixer.randomMood()     // Pick a random mood
+mixer.enableAutoMood() // Enable automatic mood cycling
+mixer.disableAutoMood()// Disable automatic mood cycling
+
+// Volume
+mixer.setMasterVolume(0.7)  // Set master volume (0-1)
+
+// Info
+mixer.getMoods()       // Get list of mood names
+mixer.getCurrentMood() // Get current mood name
+mixer.getIsPlaying()   // Check if playing
+
+// Cleanup
+mixer.destroy()        // Clean up resources</code></pre>
+
+      <h3 style="font-size: 1rem; margin-top: 1.5rem;">Configuration Options</h3>
+      <pre><code>new AmbientMixer({
+  masterVolume: 0.5,      // Initial master volume (0-1)
+  fadeSpeed: 0.02,        // How fast tracks fade in/out
+  moodDuration: {
+    min: 20000,           // Minimum ms before mood change
+    max: 40000            // Maximum ms before mood change
+  },
+  onMoodChange: (mood) => {},      // Callback when mood changes
+  onPlayStateChange: (playing) => {} // Callback when play state changes
+})</code></pre>
+    </div>
+  </div>
+
+  <script src="ambient-mixer.js"></script>
+  <script>
+    // Demo Implementation
+    const mixer = new AmbientMixer({
+      masterVolume: 0.5,
+      onMoodChange: (mood) => {
+        document.getElementById('status-mood').textContent = mood;
+        document.getElementById('mixer-current-mood').textContent = `Current: ${mood}`;
+      },
+      onPlayStateChange: (playing) => {
+        document.getElementById('status-playing').textContent = playing ? 'Playing' : 'Stopped';
+      }
+    });
+
+    // Initialize with example tracks (replace with your own)
+    // Using placeholder paths - these won't actually play without real files
+    mixer.init({
+      night: 'audio/night-ambience.mp3',
+      storm1: 'audio/storm-1.mp3',
+      storm2: 'audio/storm-2.mp3',
+      piano1: 'audio/piano-minimal.mp3',
+      piano2: 'audio/piano-creepy.mp3',
+      strings: 'audio/strings-suspense.mp3'
+    });
+
+    // Define moods
+    mixer.defineMoods({
+      'Quiet Night': { night: 0.4, piano1: 0.2 },
+      'Enigmatic': { night: 0.35, storm2: 0.1, piano2: 0.25 },
+      'Suspense': { night: 0.3, storm2: 0.25, piano1: 0.2 },
+      'Storm': { night: 0.2, storm1: 0.35, storm2: 0.2, piano2: 0.15 },
+      'Full Storm': { night: 0.15, storm1: 0.4, storm2: 0.3, piano1: 0.2 },
+      'Creepy': { night: 0.15, storm1: 0.3, storm2: 0.25, piano2: 0.18 },
+      'Eerie Calm': { night: 0.3, piano1: 0.25, piano2: 0.15 },
+      'Tension': { night: 0.2, storm1: 0.15, storm2: 0.1, strings: 0.2 }
+    });
+
+    // Populate mood selector
+    const moodSelect = document.getElementById('mixer-mood');
+    mixer.getMoods().forEach(mood => {
+      const option = document.createElement('option');
+      option.value = mood;
+      option.textContent = mood;
+      moodSelect.appendChild(option);
+    });
+
+    // UI Controls
+    const toggleBtn = document.getElementById('mixer-toggle');
+    const settingsBtn = document.getElementById('mixer-settings-btn');
+    const panel = document.getElementById('mixer-panel');
+    const volumeSlider = document.getElementById('mixer-volume');
+
+    let panelVisible = false;
+
+    toggleBtn.addEventListener('click', () => {
+      mixer.toggle();
+      toggleBtn.classList.toggle('playing', mixer.getIsPlaying());
+      settingsBtn.classList.toggle('visible', mixer.getIsPlaying());
+
+      if (!mixer.getIsPlaying()) {
+        panel.classList.remove('visible');
+        settingsBtn.classList.remove('active');
+        panelVisible = false;
+      }
+    });
+
+    settingsBtn.addEventListener('click', () => {
+      panelVisible = !panelVisible;
+      panel.classList.toggle('visible', panelVisible);
+      settingsBtn.classList.toggle('active', panelVisible);
+    });
+
+    volumeSlider.addEventListener('input', () => {
+      mixer.setMasterVolume(volumeSlider.value / 100);
+    });
+
+    moodSelect.addEventListener('change', () => {
+      if (moodSelect.value === 'auto') {
+        mixer.enableAutoMood();
+        mixer.randomMood();
+      } else {
+        mixer.setMood(moodSelect.value);
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,247 @@
+/**
+ * Ambient Audio Mixer - UI Styles
+ * Customizable styles for the mixer controls
+ */
+
+/* Control Container */
+.ambient-mixer-controls {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+/* Play/Stop Toggle Button */
+.ambient-mixer-toggle {
+  background: rgba(100, 80, 140, 0.3);
+  border: 1px solid rgba(140, 120, 180, 0.3);
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 1.1rem;
+  color: white;
+}
+
+.ambient-mixer-toggle:hover {
+  background: rgba(120, 100, 160, 0.4);
+  border-color: rgba(160, 140, 200, 0.5);
+}
+
+.ambient-mixer-toggle.playing {
+  background: rgba(100, 140, 80, 0.3);
+  border-color: rgba(140, 180, 120, 0.4);
+}
+
+.ambient-mixer-toggle .icon-off,
+.ambient-mixer-toggle.playing .icon-on {
+  display: inline;
+}
+
+.ambient-mixer-toggle .icon-on,
+.ambient-mixer-toggle.playing .icon-off {
+  display: none;
+}
+
+/* Settings Toggle Button */
+.ambient-mixer-settings-btn {
+  background: rgba(100, 80, 140, 0.3);
+  border: 1px solid rgba(140, 120, 180, 0.3);
+  border-radius: 8px;
+  padding: 0.4rem 0.6rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 0.9rem;
+  color: white;
+  display: none;
+}
+
+.ambient-mixer-settings-btn.visible {
+  display: block;
+}
+
+.ambient-mixer-settings-btn:hover {
+  background: rgba(120, 100, 160, 0.4);
+  border-color: rgba(160, 140, 200, 0.5);
+}
+
+.ambient-mixer-settings-btn.active {
+  background: rgba(140, 120, 180, 0.5);
+}
+
+/* Settings Panel */
+.ambient-mixer-panel {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 0.5rem;
+  background: rgba(15, 12, 20, 0.95);
+  border: 1px solid rgba(140, 120, 180, 0.3);
+  border-radius: 10px;
+  padding: 0.75rem;
+  min-width: 180px;
+  backdrop-filter: blur(10px);
+  z-index: 100;
+  display: none;
+}
+
+.ambient-mixer-panel.visible {
+  display: block;
+}
+
+/* Volume Control */
+.ambient-mixer-volume {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.ambient-mixer-volume label {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.6);
+  min-width: 45px;
+}
+
+.ambient-mixer-volume input[type="range"] {
+  flex: 1;
+  height: 4px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: rgba(100, 80, 140, 0.4);
+  border-radius: 2px;
+  cursor: pointer;
+}
+
+.ambient-mixer-volume input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  background: rgba(180, 160, 220, 0.9);
+  border-radius: 50%;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.ambient-mixer-volume input[type="range"]::-webkit-slider-thumb:hover {
+  background: rgba(200, 180, 240, 1);
+}
+
+.ambient-mixer-volume input[type="range"]::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  background: rgba(180, 160, 220, 0.9);
+  border-radius: 50%;
+  cursor: pointer;
+  border: none;
+}
+
+/* Mood Selector */
+.ambient-mixer-mood {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.ambient-mixer-mood label {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.6);
+  min-width: 45px;
+}
+
+.ambient-mixer-mood select {
+  flex: 1;
+  background: rgba(100, 80, 140, 0.3);
+  border: 1px solid rgba(140, 120, 180, 0.3);
+  border-radius: 4px;
+  color: white;
+  font-size: 0.75rem;
+  padding: 0.3rem 0.5rem;
+  cursor: pointer;
+}
+
+.ambient-mixer-mood select:focus {
+  outline: none;
+  border-color: rgba(180, 160, 220, 0.5);
+}
+
+.ambient-mixer-mood select option {
+  background: #1a1520;
+  color: white;
+}
+
+/* Current Mood Display */
+.ambient-mixer-current-mood {
+  font-size: 0.7rem;
+  color: rgba(180, 160, 220, 0.8);
+  text-align: center;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid rgba(100, 80, 140, 0.2);
+}
+
+/* Theme Variants */
+
+/* Dark Theme (default) */
+.ambient-mixer-controls.theme-dark {
+  /* Uses default styles */
+}
+
+/* Light Theme */
+.ambient-mixer-controls.theme-light .ambient-mixer-toggle,
+.ambient-mixer-controls.theme-light .ambient-mixer-settings-btn {
+  background: rgba(100, 100, 120, 0.15);
+  border-color: rgba(100, 100, 120, 0.3);
+  color: #333;
+}
+
+.ambient-mixer-controls.theme-light .ambient-mixer-toggle:hover,
+.ambient-mixer-controls.theme-light .ambient-mixer-settings-btn:hover {
+  background: rgba(100, 100, 120, 0.25);
+}
+
+.ambient-mixer-controls.theme-light .ambient-mixer-toggle.playing {
+  background: rgba(80, 140, 100, 0.2);
+  border-color: rgba(80, 140, 100, 0.4);
+}
+
+.ambient-mixer-controls.theme-light .ambient-mixer-panel {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: rgba(100, 100, 120, 0.2);
+}
+
+.ambient-mixer-controls.theme-light .ambient-mixer-volume label,
+.ambient-mixer-controls.theme-light .ambient-mixer-mood label {
+  color: rgba(0, 0, 0, 0.6);
+}
+
+.ambient-mixer-controls.theme-light .ambient-mixer-mood select {
+  background: rgba(100, 100, 120, 0.1);
+  border-color: rgba(100, 100, 120, 0.3);
+  color: #333;
+}
+
+.ambient-mixer-controls.theme-light .ambient-mixer-mood select option {
+  background: white;
+  color: #333;
+}
+
+/* Minimal Theme */
+.ambient-mixer-controls.theme-minimal .ambient-mixer-toggle,
+.ambient-mixer-controls.theme-minimal .ambient-mixer-settings-btn {
+  background: transparent;
+  border: none;
+  opacity: 0.6;
+}
+
+.ambient-mixer-controls.theme-minimal .ambient-mixer-toggle:hover,
+.ambient-mixer-controls.theme-minimal .ambient-mixer-settings-btn:hover {
+  opacity: 1;
+  background: transparent;
+}
+
+.ambient-mixer-controls.theme-minimal .ambient-mixer-toggle.playing {
+  opacity: 1;
+}
