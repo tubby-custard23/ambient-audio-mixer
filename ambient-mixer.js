@@ -49,6 +49,8 @@
   /**
    * Effect definitions. Each one describes its parameters (used by UIs to
    * render controls) and builds a node pair { input, output, set, dispose }.
+   * Parameters marked heavy are slow to change (the reverb rebuilds its
+   * impulse), so UIs should apply them when a slider is released.
    */
   const EFFECTS = {
     filter: {
@@ -90,8 +92,8 @@
     reverb: {
       label: 'Reverb',
       params: {
-        size: { label: 'Length', min: 0.3, max: 10, default: 3.5, step: 0.1, unit: 's' },
-        decay: { label: 'Decay', min: 0.5, max: 8, default: 2.5, step: 0.1 },
+        size: { label: 'Length', min: 0.3, max: 10, default: 3.5, step: 0.1, unit: 's', heavy: true },
+        decay: { label: 'Decay', min: 0.5, max: 8, default: 2.5, step: 0.1, heavy: true },
         tone: { label: 'Tone', min: 500, max: 18000, default: 6000, scale: 'log', unit: 'Hz' },
         mix: { label: 'Mix', min: 0, max: 1, default: 0.35, step: 0.01 }
       },
@@ -195,7 +197,7 @@
       label: 'Compressor',
       params: {
         threshold: { label: 'Threshold', min: -60, max: 0, default: -24, step: 1, unit: 'dB' },
-        ratio: { label: 'Ratio', min: 1, max: 20, default: 3, step: 0.1 },
+        ratio: { label: 'Ratio', min: 1, max: 20, default: 3, step: 0.1, unit: ':1' },
         attack: { label: 'Attack', min: 0.001, max: 1, default: 0.03, scale: 'log', unit: 's' },
         release: { label: 'Release', min: 0.02, max: 2, default: 0.4, scale: 'log', unit: 's' },
         makeup: { label: 'Makeup', min: 0, max: 24, default: 0, step: 0.5, unit: 'dB' }

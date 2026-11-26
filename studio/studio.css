@@ -427,6 +427,77 @@ input[type="text"], input[type="url"], input[type="number"], select {
 .segmented button + button { border-left: 1px solid var(--line); }
 .segmented button[aria-pressed="true"] { background: var(--fog); color: var(--peat-deep); }
 
+/* ---------- Effects rack ---------- */
+
+.rack-wrap {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 1.25rem;
+  align-items: start;
+}
+
+.rack {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.fx {
+  flex: 0 1 16rem;
+  min-width: 13rem;
+  padding: 0.6rem 0.75rem 0.8rem;
+  background: var(--peat-raised);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--sodium);
+  border-radius: var(--radius-s);
+}
+.fx.off { border-left-color: var(--line); }
+.fx.off .fx-params { opacity: 0.5; }
+
+.fx-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+.fx-power {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.fx-power input { accent-color: var(--sodium); width: 1rem; height: 1rem; margin: 0; }
+.fx-tools { display: inline-flex; }
+.fx-tools button { padding: 0.1rem 0.45rem; font-size: 1.05rem; }
+
+.fx-params { display: grid; gap: 0.55rem; }
+
+.fx-param {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.1rem 0.5rem;
+  font-size: 0.875rem;
+}
+.fx-param-label { color: var(--lichen); }
+.fx-param-value { color: var(--fog); text-align: right; }
+.fx-param input[type="range"],
+.fx-param .segmented { grid-column: 1 / -1; }
+.fx-param input[type="range"] { width: 100%; margin: 0; accent-color: var(--sodium); }
+.fx-param .segmented button { padding: 0.2rem 0.4rem; flex: 1; font-size: 0.8rem; white-space: nowrap; }
+.fx-param .segmented { display: flex; }
+
+.fx-add {
+  display: grid;
+  gap: 0.4rem;
+  width: 10rem;
+}
+.fx-add h3 { margin: 0 0 0.15rem; font-size: 0.95rem; font-weight: 600; color: var(--lichen); }
+.fx-add button { text-align: left; }
+
 /* ---------- Overlays ---------- */
 
 .drop-overlay {
@@ -471,6 +542,10 @@ input[type="text"], input[type="url"], input[type="number"], select {
   .console { padding: 1rem; flex-direction: column; gap: 1rem; }
   .master-slot { padding: 1rem 0 0; margin: 0; border-left: 0; border-top: 1px solid var(--line); }
   .master-slot .strip { width: var(--strip-w); }
+  .rack-wrap { grid-template-columns: 1fr; }
+  .fx { flex-basis: 100%; }
+  .fx-add { width: auto; grid-template-columns: repeat(auto-fill, minmax(7rem, 1fr)); }
+  .fx-add h3 { grid-column: 1 / -1; }
   .add-strip { flex-basis: calc(var(--strip-w) * 1.9); }
 }
 

@@ -21,6 +21,7 @@ A lightweight JavaScript library for creating dynamic, atmospheric soundscapes o
 
 - add tracks from audio files (drag them onto the page), URLs, or generated noise
 - mix with faders, pan, mute and solo while watching live meters
+- add effects to any track or to the master bus, then reorder, bypass and tweak them (double-click a slider to reset it)
 - save mixes as moods and crossfade between them, by hand or on a cycle
 
 Press Space to play or stop.
