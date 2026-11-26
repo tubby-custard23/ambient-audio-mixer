@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Engine tests</title>
+</head>
+<body>
+  <script src="harness.js"></script>
+  <script src="../ambient-mixer.js"></script>
+  <script>
+    const MASTER = AmbientMixer.MASTER;
+
+    function offlineMixer(seconds = 1) {
+      const ctx = offline(seconds);
+      const mixer = new AmbientMixer({ audioContext: ctx, autoMood: false, fadeTime: 0.01, masterVolume: 1 });
+      return { ctx, mixer };
+    }
+
+    /** A short sine tone as a WAV blob, for testing <audio> tracks. */
+    function toneWav(seconds = 1, freq = 440, rate = 22050) {
+      const n = Math.floor(seconds * rate);
+      const buf = new ArrayBuffer(44 + n * 2);
+      const v = new DataView(buf);
+      const str = (o, s) => [...s].forEach((c, i) => v.setUint8(o + i, c.charCodeAt(0)));
+      str(0, 'RIFF'); v.setUint32(4, 36 + n * 2, true); str(8, 'WAVEfmt ');
+      v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+      v.setUint32(24, rate, true); v.setUint32(28, rate * 2, true); v.setUint16(32, 2, true);
+      v.setUint16(34, 16, true); str(36, 'data'); v.setUint32(40, n * 2, true);
+      for (let i = 0; i < n; i++) v.setInt16(44 + i * 2, Math.sin(2 * Math.PI * freq * i / rate) * 16000, true);
+      return new File([buf], 'tone.wav', { type: 'audio/wav' });
+    }
+
+    test('legacy API: init, moods, setMood, randomMood', () => {
+      const changes = [];
+      const mixer = new AmbientMixer({ onMoodChange: m => changes.push(m) });
+      mixer.init({ night: 'night.mp3', rain: 'rain.mp3', piano: 'piano.mp3' });
+      mixer.defineMoods({ calm: { night: 0.4, piano: 0.2 }, stormy: { rain: 0.5 } });
+      assert(mixer.getMoods().join() === 'calm,stormy', 'moods listed');
+      mixer.setMood('calm');
+      assert(mixer.getCurrentMood() === 'calm');
+      assert(mixer.autoMood === false, 'setMood turns off auto mood');
+      near(mixer.getTrack('night').volume, 0.4, 1e-9, 'night volume');
+      near(mixer.getTrack('rain').volume, 0, 1e-9, 'rain volume');
+      for (let i = 0; i < 10; i++) {
+        const before = mixer.getCurrentMood();
+        mixer.randomMood();
+        assert(mixer.getCurrentMood() !== before, 'randomMood picks a different mood');
+      }
+      assert(changes.length === 11, 'onMoodChange called each time');
+      mixer.destroy();
+    });
+
+    test('legacy fadeSpeed maps to a fade time', () => {
+      const mixer = new AmbientMixer({ fadeSpeed: 0.02 });
+      near(mixer.fadeTime, 2.5, 1e-9);
+      assert(new AmbientMixer({ masterVolume: 0 }).masterVolume === 0, 'masterVolume 0 is kept');
+    });
+
+    test('noise track plays at its fader level', async () => {
+      const { ctx, mixer } = offlineMixer();
+      mixer.addTrack('loud', { type: 'noise', color: 'white' }, { volume: 1 });
+      mixer.addTrack('silent', { type: 'noise', color: 'white' }, { volume: 0 });
+      mixer.play();
+      const out = await ctx.startRendering();
+      assert(peakOf(out, 0.2) > 0.2, 'loud track is audible');
+
+      const quiet = offlineMixer();
+      quiet.mixer.addTrack('silent', { type: 'noise' }, { volume: 0 });
+      quiet.mixer.play();
+      near(peakOf(await quiet.ctx.startRendering(), 0.2), 0, 1e-4, 'zero volume is silent');
+    });
+
+    test('mute and solo', async () => {
+      const { ctx, mixer } = offlineMixer();
+      mixer.addTrack('a', { type: 'noise' }, { volume: 1, mute: true });
+      mixer.play();
+      near(peakOf(await ctx.startRendering(), 0.2), 0, 1e-4, 'muted track is silent');
+
+      const s = offlineMixer();
+      s.mixer.addTrack('a', { type: 'noise' }, { volume: 1 });
+      s.mixer.addTrack('b', { type: 'noise' }, { volume: 1 });
+      s.mixer.setTrackSolo('b', true).setTrackMute('b', true);
+      s.mixer.play();
+      near(peakOf(await s.ctx.startRendering(), 0.2), 0, 1e-4, 'solo on b silences a; b is muted');
+    });
+
+    test('pan hard left empties the right channel', async () => {
+      const { ctx, mixer } = offlineMixer();
+      mixer.addTrack('a', { type: 'noise', color: 'white' }, { volume: 1, pan: -1 });
+      mixer.play();
+      const out = await ctx.startRendering();
+      assert(rmsOf(out, 0, 0.2) > 0.1, 'left has signal');
+      near(rmsOf(out, 1, 0.2), 0, 1e-3, 'right is silent');
+    });
+
+    test('master volume scales the output', async () => {
+      const { ctx, mixer } = offlineMixer();
+      mixer.addTrack('a', { type: 'noise', color: 'white' }, { volume: 1 });
+      mixer.setMasterVolume(0);
+      mixer.play();
+      near(peakOf(await ctx.startRendering(), 0.5), 0, 1e-4);
+    });
+
+    test('lowpass filter removes high frequencies from white noise', async () => {
+      const dry = offlineMixer();
+      dry.mixer.addTrack('a', { type: 'noise', color: 'white' }, { volume: 1 });
+      dry.mixer.play();
+      const dryRms = rmsOf(await dry.ctx.startRendering(), 0, 0.2);
+
+      const wet = offlineMixer();
+      wet.mixer.addTrack('a', { type: 'noise', color: 'white' }, { volume: 1 });
+      wet.mixer.addEffect('a', 'filter', { frequency: 200 });
+      wet.mixer.play();
+      const wetRms = rmsOf(await wet.ctx.startRendering(), 0, 0.2);
+      assert(wetRms < dryRms * 0.3, `filtered rms ${wetRms} should be far below ${dryRms}`);
+    });
+
+    test('every effect type renders sound', async () => {
+      for (const type of Object.keys(AmbientMixer.EFFECTS)) {
+        const { ctx, mixer } = offlineMixer();
+        mixer.addTrack('a', { type: 'noise' }, { volume: 1 });
+        mixer.addEffect('a', type);
+        mixer.addEffect(MASTER, type);
+        mixer.play();
+        const out = await ctx.startRendering();
+        const peak = peakOf(out, 0.5);
+        assert(peak > 0.01 && Number.isFinite(peak), `${type} output peak ${peak}`);
+      }
+    });
+
+    test('disabling an effect bypasses it', async () => {
+      const { ctx, mixer } = offlineMixer();
+      mixer.addTrack('a', { type: 'noise', color: 'white' }, { volume: 1 });
+      const id = mixer.addEffect('a', 'filter', { frequency: 40 });
+      mixer.setEffectEnabled('a', id, false);
+      mixer.play();
+      assert(rmsOf(await ctx.startRendering(), 0, 0.2) > 0.1, 'unfiltered when bypassed');
+    });
+
+    test('effects can be reordered, updated and removed', () => {
+      const { mixer } = offlineMixer();
+      mixer.addTrack('a', { type: 'noise' });
+      const f = mixer.addEffect('a', 'filter');
+      const r = mixer.addEffect('a', 'reverb', { mix: 0.8 });
+      const d = mixer.addEffect('a', 'delay');
+      mixer.moveEffect('a', d, 0);
+      assert(mixer.getEffects('a').map(e => e.id).join() === [d, f, r].join(), 'order after move');
+      mixer.updateEffect('a', f, { frequency: 500 });
+      assert(mixer.getEffects('a')[1].params.frequency === 500, 'param updated');
+      assert(mixer.getEffects('a')[2].params.mix === 0.8, 'initial params kept');
+      assert(mixer.getEffects('a')[2].params.size === AmbientMixer.EFFECTS.reverb.params.size.default, 'defaults filled');
+      mixer.removeEffect('a', r);
+      assert(mixer.getEffects('a').length === 2, 'removed');
+    });
+
+    test('rename and remove keep moods in step', () => {
+      const { mixer } = offlineMixer();
+      mixer.addTrack('rain', { type: 'noise' }).addTrack('wind', { type: 'noise' });
+      mixer.defineMoods({ wet: { rain: 0.5, wind: 0.1 } });
+      mixer.renameTrack('rain', 'downpour');
+      assert(mixer.getMood('wet').downpour === 0.5 && !('rain' in mixer.getMood('wet')), 'mood renamed');
+      assert(mixer.getTracks().map(t => t.name).join() === 'downpour,wind', 'order kept');
+      mixer.removeTrack('wind');
+      assert(!('wind' in mixer.getMood('wet')), 'mood entry removed');
+      let threw = false;
+      try { mixer.addTrack('downpour', { type: 'noise' }); } catch (e) { threw = true; }
+      assert(threw, 'duplicate names rejected');
+    });
+
+    test('captureMood saves the current mix', () => {
+      const { mixer } = offlineMixer();
+      mixer.addTrack('a', { type: 'noise' }, { volume: 0.3 }).addTrack('b', { type: 'noise' });
+      mixer.captureMood('now');
+      assert(JSON.stringify(mixer.getMood('now')) === '{"a":0.3}');
+    });
+
+    test('toJSON / load round-trip', () => {
+      // A real context, since offline contexts cannot host <audio> tracks.
+      const mixer = new AmbientMixer({ autoMood: false });
+      mixer.addTrack('rain', { type: 'noise', color: 'brown' }, { volume: 0.4, pan: 0.3, solo: true, meta: { fileId: 'x' } });
+      mixer.addTrack('remote', 'https://example.com/a.mp3', { volume: 0.2 });
+      mixer.addEffect('rain', 'reverb', { mix: 0.6 });
+      mixer.addEffect(MASTER, 'compressor', { ratio: 4 }, { enabled: false });
+      mixer.setMasterVolume(0.7);
+      mixer.defineMoods({ calm: { rain: 0.2 } });
+      const json = JSON.parse(JSON.stringify(mixer.toJSON()));
+
+      const other = new AmbientMixer();
+      other.load(json);
+      const again = JSON.parse(JSON.stringify(other.toJSON()));
+      assert(JSON.stringify(again) === JSON.stringify(json), 'identical after reload');
+      assert(other.getTrack('rain').source.color === 'brown');
+      assert(other.getEffects(MASTER)[0].enabled === false);
+      mixer.destroy();
+      other.destroy();
+    });
+
+    test('load rejects other files', () => {
+      let threw = false;
+      try { new AmbientMixer().load({ hello: 1 }); } catch (e) { threw = true; }
+      assert(threw);
+    });
+
+    test('audio file track plays through the graph (real context)', async () => {
+      const mixer = new AmbientMixer({ autoMood: false, fadeTime: 0.05, masterVolume: 1 });
+      mixer.addTrack('tone', toneWav(), { volume: 1 });
+      await new Promise(r => setTimeout(r, 200));
+      mixer.play();
+      let level = 0;
+      for (let i = 0; i < 30 && level < 0.1; i++) {
+        await new Promise(r => setTimeout(r, 100));
+        level = mixer.getLevel('tone').peak;
+      }
+      assert(level > 0.1, `track level ${level}`);
+      assert(mixer.getLevel(MASTER).peak > 0.1, 'master level');
+      mixer.stop();
+      assert(mixer.getLevel('tone').peak === 0, 'level is 0 when stopped');
+      mixer.destroy();
+    });
+
+    test('a missing audio file reports an error', async () => {
+      const mixer = new AmbientMixer({ autoMood: false });
+      let notified = false;
+      mixer.on('track', () => { notified = true; });
+      mixer.addTrack('gone', 'does-not-exist.mp3');
+      for (let i = 0; i < 30 && !notified; i++) await new Promise(r => setTimeout(r, 100));
+      assert(notified, 'track event fired');
+      assert(mixer.getTrack('gone').source.error, 'error described');
+      mixer.destroy();
+    });
+  </script>
+</body>
+</html>

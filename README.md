@@ -5,6 +5,10 @@ A lightweight JavaScript library for creating dynamic, atmospheric soundscapes o
 ## Features
 
 - **Dynamic Mixing**: Smoothly crossfade between multiple audio tracks
+- **Per-Track Controls**: Volume, pan, mute and solo for every track, plus live level meters
+- **Effects**: Filter (with slow drift), reverb, delay, tremolo and compressor on any track or the master bus
+- **Generated Sounds**: White, pink and brown noise beds that need no audio files
+- **Save & Load**: The whole mix, including effects and moods, as JSON
 - **Mood Presets**: Define combinations of track volumes as "moods"
 - **Auto-Cycling**: Automatically transition between moods over time
 - **Smooth Fading**: Gradual volume transitions for seamless audio changes
@@ -68,6 +72,8 @@ mixer.defineMoods({
 mixer.play();
 ```
 
+Browsers only allow audio to start after the visitor interacts with the page, so call `play()` from a click handler.
+
 ## Finding Royalty-Free Audio
 
 Here are some great sources for free ambient audio:
@@ -96,7 +102,8 @@ For a good ambient mix, consider including:
 ```javascript
 new AmbientMixer({
   masterVolume: 0.5,        // Initial volume (0-1)
-  fadeSpeed: 0.02,          // Crossfade speed (higher = faster)
+  fadeTime: 2.5,            // Seconds a mood crossfade takes
+  autoMood: true,           // Cycle moods automatically when playing
   moodDuration: {
     min: 20000,             // Min ms before auto mood change
     max: 40000              // Max ms before auto mood change
@@ -124,6 +131,51 @@ new AmbientMixer({
 | `getCurrentMood()` | Get current mood name |
 | `getIsPlaying()` | Check if playing |
 | `destroy()` | Clean up resources |
+
+#### Tracks
+
+| Method | Description |
+|--------|-------------|
+| `addTrack(name, source, opts)` | Add a track. `source` is a URL, a `File`/`Blob`, or options such as `{ type: 'noise', color: 'brown' }`. `opts`: `{ volume, pan, mute, solo, meta }` |
+| `removeTrack(name)` | Remove a track (and its entries in every mood) |
+| `renameTrack(name, newName)` | Rename a track; moods follow |
+| `moveTrack(name, index)` | Change track order |
+| `setTrackVolume(name, vol, { fade })` | Set volume (0-1), optionally crossfading over `fadeTime` |
+| `setTrackPan(name, pan)` | Pan from -1 (left) to 1 (right) |
+| `setTrackMute(name, bool)` / `setTrackSolo(name, bool)` | Mute or solo |
+| `updateTrackSource(name, opts)` | Change the source, e.g. `{ src: newFile }` or `{ color: 'pink' }` |
+| `getTracks()` / `getTrack(name)` | Track settings, source info and effects |
+| `getLevel(name)` | Live `{ peak, rms }` of a track, or of the master bus when called with no name |
+
+#### Effects
+
+Pass a track name, or `AmbientMixer.MASTER` for the master bus.
+
+| Method | Description |
+|--------|-------------|
+| `addEffect(target, type, params)` | Add `filter`, `reverb`, `delay`, `tremolo` or `compressor`; returns an id |
+| `updateEffect(target, id, params)` | Change parameters |
+| `setEffectEnabled(target, id, bool)` | Bypass or re-enable |
+| `moveEffect(target, id, index)` / `removeEffect(target, id)` | Reorder or remove |
+| `getEffects(target)` | List effects with their parameters |
+
+`AmbientMixer.EFFECTS` describes every effect's parameters (range, default, unit), which is handy for building controls.
+
+```javascript
+mixer.addEffect('rain', 'filter', { frequency: 900, lfoDepth: 0.4, lfoRate: 0.03 });
+mixer.addEffect(AmbientMixer.MASTER, 'reverb', { size: 6, mix: 0.3 });
+```
+
+#### Moods, saving and events
+
+| Method | Description |
+|--------|-------------|
+| `saveMood(name, volumes)` / `removeMood(name)` / `renameMood(a, b)` | Edit single moods |
+| `captureMood(name)` | Save the current track volumes as a mood |
+| `setMoodDuration(min, max)` | Auto-cycle timing in ms |
+| `toJSON()` | The whole mix as plain data |
+| `load(data, { resolveSource })` | Replace the mix with saved data |
+| `on(event, fn)` / `off(event, fn)` | Events: `play`, `mood`, `moods`, `tracks`, `track`, `effects` |
 
 ## Adding UI Controls
 
@@ -245,6 +297,14 @@ mixer.defineMoods({
 
 mixer.play();
 ```
+
+## Tests
+
+```bash
+npm test
+```
+
+Runs the browser test pages in `test/` with headless Chrome or Chromium (set `CHROME=/path/to/chrome` if it isn't found).
 
 ## Browser Support
 

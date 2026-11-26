@@ -1,6 +1,6 @@
 {
   "name": "ambient-audio-mixer",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "A lightweight JavaScript library for creating dynamic, atmospheric soundscapes",
   "main": "ambient-mixer.js",
   "files": [
@@ -9,7 +9,8 @@
     "README.md"
   ],
   "scripts": {
-    "serve": "npx serve ."
+    "serve": "npx serve .",
+    "test": "node test/run.mjs"
   },
   "keywords": [
     "audio",
