@@ -1063,6 +1063,20 @@
       return this.isPlaying;
     }
 
+    /**
+     * Tap the master output as a MediaStream, e.g. for MediaRecorder.
+     * @returns {{ stream: MediaStream, release: Function }}
+     */
+    captureStream() {
+      const ctx = this.getContext();
+      const dest = ctx.createMediaStreamDestination();
+      this.master.analyser.connect(dest);
+      return {
+        stream: dest.stream,
+        release: () => this.master && this.master.analyser.disconnect(dest)
+      };
+    }
+
     // ----- Save and load -----------------------------------------------------
 
     /** The whole mix as plain JSON-safe data. */

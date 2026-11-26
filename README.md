@@ -23,6 +23,9 @@ A lightweight JavaScript library for creating dynamic, atmospheric soundscapes o
 - mix with faders, pan, mute and solo while watching live meters
 - add effects to any track or to the master bus, then reorder, bypass and tweak them (double-click a slider to reset it)
 - add chord progression tracks played by a synth pad or by your own samples
+- keep mixes: everything, including dropped audio files, is saved in your browser as you work, and the Mixes menu switches between them
+- export a mix as JSON and import it elsewhere (audio files aren't included; dropping a file with the same name reconnects it)
+- record what you hear to an audio file
 - save mixes as moods and crossfade between them, by hand or on a cycle
 
 Press Space to play or stop.
@@ -220,6 +223,7 @@ mixer.addEffect(AmbientMixer.MASTER, 'reverb', { size: 6, mix: 0.3 });
 | `captureMood(name)` | Save the current track volumes as a mood |
 | `setMoodDuration(min, max)` | Auto-cycle timing in ms |
 | `toJSON()` | The whole mix as plain data |
+| `captureStream()` | The master output as a `MediaStream` (for `MediaRecorder`), plus a `release()` function |
 | `load(data, { resolveSource })` | Replace the mix with saved data |
 | `on(event, fn)` / `off(event, fn)` | Events: `play`, `mood`, `moods`, `tracks`, `track`, `effects` |
 
