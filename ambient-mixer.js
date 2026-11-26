@@ -744,6 +744,11 @@
       return this;
     }
 
+    /** The live source object of a track, for source-specific calls. */
+    getSource(name) {
+      return this.track(name).source;
+    }
+
     /** Change a track's source settings, e.g. { src } or { color }. */
     updateTrackSource(name, options) {
       this.track(name).source.set(options);

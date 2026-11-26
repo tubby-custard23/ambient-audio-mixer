@@ -5,12 +5,13 @@
   "main": "ambient-mixer.js",
   "files": [
     "ambient-mixer.js",
+    "ambient-chords.js",
     "ambient-mixer.css",
     "README.md"
   ],
   "scripts": {
     "serve": "npx serve .",
-    "test": "node test/run.mjs"
+    "test": "node --test test/*.test.mjs && node test/run.mjs"
   },
   "keywords": [
     "audio",
@@ -19,7 +20,8 @@
     "soundscape",
     "atmosphere",
     "music",
-    "web-audio"
+    "web-audio",
+    "chords"
   ],
   "author": "Daniel Lopez-Cope",
   "license": "MIT",
