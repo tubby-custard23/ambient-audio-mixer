@@ -22,6 +22,7 @@ A lightweight JavaScript library for creating dynamic, atmospheric soundscapes o
 - add tracks from audio files (drag them onto the page), URLs, or generated noise
 - mix with faders, pan, mute and solo while watching live meters
 - add effects to any track or to the master bus, then reorder, bypass and tweak them (double-click a slider to reset it)
+- add chord progression tracks played by a synth pad or by your own samples
 - save mixes as moods and crossfade between them, by hand or on a cycle
 
 Press Space to play or stop.
@@ -84,6 +85,40 @@ mixer.play();
 ```
 
 Browsers only allow audio to start after the visitor interacts with the page, so call `play()` from a click handler.
+
+## Chord Progressions
+
+`ambient-chords.js` adds a `chords` track type that loops a progression. Load it after `ambient-mixer.js`:
+
+```html
+<script src="ambient-mixer.js"></script>
+<script src="ambient-chords.js"></script>
+```
+
+```javascript
+mixer.addTrack('Pad', {
+  type: 'chords',
+  key: 'A',
+  mode: 'minor',               // major, minor, dorian, phrygian, lydian, mixolydian, locrian, harmonicMinor
+  progression: 'i VI III VII', // or chord names: 'Am F C G'
+  bpm: 60,
+  beatsPerChord: 8,
+  pattern: 'sustain',          // sustain, bloom, pulse, arpeggio
+  octave: 3,
+  spread: 'open',              // close, open, wide
+  voiceLeading: true,          // pick inversions that move as little as possible
+  bass: true,
+  instrument: 'pad',           // pad or sampler
+  pad: { wave: 'sawtooth', unison: 2, detune: 12, warmth: 1400, attack: 2.5, release: 4 },
+  sampler: { samples: [{ src: 'piano-C4.mp3', note: 60 }], attack: 0.01, release: 1.5, loop: false }
+}, { volume: 0.4 });
+
+mixer.updateTrackSource('Pad', { progression: 'i iv VI V' });
+```
+
+Progressions accept Roman numerals relative to the key (`i`, `bVII`, `V7`, `ii°`, `viiø7`, `IVmaj7`, `Isus2`) and chord names (`Am`, `F#m7`, `Bbmaj7`, `Cadd9`, `G/B`). `Am:2` holds a chord for twice as long. Changes start with the next chord.
+
+`AmbientChords` exposes the theory helpers (`parseProgression`, `parseChord`, `voiceChord`, `noteFromName`, `PRESETS`, `MODES`).
 
 ## Finding Royalty-Free Audio
 

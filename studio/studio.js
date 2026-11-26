@@ -340,6 +340,13 @@
     return form;
   }
 
+  /** Extra ways to add a track, registered by other studio scripts. */
+  const addButtons = [];
+
+  function extraAddButtons() {
+    return addButtons.map(b => h('button', { type: 'button', onclick: b.run }, b.label));
+  }
+
   function noiseButtons() {
     return h('div', { class: 'noise-row' },
       ['white', 'pink', 'brown'].map(color =>
@@ -356,6 +363,7 @@
       state.addingUrl
         ? renderUrlForm(closeUrl)
         : h('button', { type: 'button', onclick: () => { state.addingUrl = true; renderStrips(); } }, 'Add from a URL'),
+      extraAddButtons(),
       h('p', { style: 'margin-top:0.5rem' }, 'Noise bed'),
       noiseButtons());
   }
@@ -368,6 +376,7 @@
       h('div', { class: 'row' },
         h('button', { type: 'button', onclick: addNoiseBed }, 'Add a wind and rain bed'),
         h('button', { type: 'button', onclick: chooseFiles }, 'Choose audio files'),
+        extraAddButtons(),
         state.addingUrl ? null : h('button', { type: 'button', class: 'quiet', onclick: () => { state.addingUrl = true; renderStrips(); } }, 'Add from a URL')),
       state.addingUrl ? h('div', { style: 'margin-top:0.75rem;max-width:24rem' }, renderUrlForm(closeUrl)) : null);
   }
@@ -550,7 +559,12 @@
   }
 
   function sourceSignature(name) {
-    return mixer.hasTrack(name) ? JSON.stringify(mixer.getTrack(name).source) : null;
+    if (!mixer.hasTrack(name)) return null;
+    const src = mixer.getTrack(name).source;
+    // Chord tracks update their own panel as you edit; only sample loading
+    // needs a redraw.
+    if (src.type === 'chords') return JSON.stringify(src.samples.map(x => [x.key, x.loaded, x.failed]));
+    return JSON.stringify(src);
   }
 
   function renderTrackHead(name) {
@@ -660,7 +674,7 @@
   drawerTabs.push({
     id: 'source',
     label: 'Source',
-    show: (name) => name !== MASTER,
+    show: (name) => name !== MASTER && ['audio', 'noise'].includes(mixer.getTrack(name).source.type),
     render: renderSourcePanel
   });
 
@@ -750,7 +764,7 @@
   });
 
   // Exposed for the other studio scripts and for poking at in the console.
-  window.studio = { mixer, state, render, h, toast, attempt, drawerTabs, uniqueName, select };
+  window.studio = { mixer, state, render, h, toast, attempt, drawerTabs, addButtons, uniqueName, select, updateStrip };
 
   renderMaster();
   renderStrips();

@@ -498,6 +498,71 @@ input[type="text"], input[type="url"], input[type="number"], select {
 .fx-add h3 { margin: 0 0 0.15rem; font-size: 0.95rem; font-weight: 600; color: var(--lichen); }
 .fx-add button { text-align: left; }
 
+/* ---------- Chords ---------- */
+
+.strip.chord { border-top: 3px solid var(--dusk); }
+.strip.chord .strip-source { color: var(--dusk); }
+
+.chords-panel {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(13rem, 1fr));
+  gap: 1rem 1.5rem;
+  align-items: start;
+  max-width: 64rem;
+}
+.chord-section { display: grid; gap: 0.6rem; }
+.chord-section h3 { margin: 0; font-size: 1rem; font-weight: 600; }
+.chord-harmony { grid-column: 1 / -1; }
+.chord-harmony .row { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; align-items: end; }
+.chord-field { display: grid; gap: 0.2rem; font-size: 0.875rem; color: var(--lichen); }
+
+.chord-input {
+  font-family: var(--font-title);
+  font-size: 1.5rem;
+  font-weight: 500;
+  padding: 0.4rem 0.7rem !important;
+  width: 100%;
+}
+.chord-problem:empty { display: none; }
+.chord-problem { margin: 0; color: var(--rust); }
+
+.chord-chips {
+  display: flex;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.chord-chip {
+  flex: 1 1 0;
+  min-width: 3rem;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--dusk);
+  border-radius: var(--radius-s);
+  font-weight: 600;
+  background: var(--peat-raised);
+}
+.chord-chip.now {
+  border-color: var(--sodium);
+  background: color-mix(in srgb, var(--sodium) 20%, var(--peat-raised));
+}
+
+.chord-help { margin: 0; font-size: 0.875rem; color: var(--moss); max-width: 72ch; }
+.chord-help code { color: var(--lichen); font-family: inherit; font-weight: 600; }
+
+.check { display: flex; align-items: center; gap: 0.4rem; font-size: 0.9rem; color: var(--lichen); cursor: pointer; }
+.check input { accent-color: var(--sodium); margin: 0; }
+
+.chords-panel .segmented { display: flex; }
+.chords-panel .segmented button { flex: 1; padding: 0.25rem 0.4rem; font-size: 0.85rem; white-space: nowrap; }
+.chords-panel .fx-param input[type="range"] { accent-color: var(--dusk); }
+
+.sample-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.3rem; }
+.sample-row { display: grid; grid-template-columns: 1fr auto auto; gap: 0.4rem; align-items: center; font-size: 0.875rem; }
+.sample-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sample-name.problem { color: var(--rust); }
+
 /* ---------- Overlays ---------- */
 
 .drop-overlay {
@@ -546,6 +611,8 @@ input[type="text"], input[type="url"], input[type="number"], select {
   .fx { flex-basis: 100%; }
   .fx-add { width: auto; grid-template-columns: repeat(auto-fill, minmax(7rem, 1fr)); }
   .fx-add h3 { grid-column: 1 / -1; }
+  .chords-panel { grid-template-columns: 1fr; }
+  .chord-chips { flex-wrap: wrap; }
   .add-strip { flex-basis: calc(var(--strip-w) * 1.9); }
 }
 

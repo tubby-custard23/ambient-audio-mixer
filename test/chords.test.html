@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Chord source tests</title>
+</head>
+<body>
+  <script src="harness.js"></script>
+  <script src="../ambient-mixer.js"></script>
+  <script src="../ambient-chords.js"></script>
+  <script>
+    function chordMixer(options, seconds = 3) {
+      const ctx = offline(seconds);
+      const mixer = new AmbientMixer({ audioContext: ctx, autoMood: false, fadeTime: 0.01, masterVolume: 1 });
+      mixer.addTrack('pad', { type: 'chords', ...options }, { volume: 1 });
+      mixer.play();
+      const source = mixer.tracks.get('pad').source;
+      source.scheduleUntil(seconds);
+      return { ctx, mixer, source };
+    }
+
+    function toneWav(seconds = 1, freq = 440, rate = 22050) {
+      const n = Math.floor(seconds * rate);
+      const buf = new ArrayBuffer(44 + n * 2);
+      const v = new DataView(buf);
+      const str = (o, s) => [...s].forEach((c, i) => v.setUint8(o + i, c.charCodeAt(0)));
+      str(0, 'RIFF'); v.setUint32(4, 36 + n * 2, true); str(8, 'WAVEfmt ');
+      v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+      v.setUint32(24, rate, true); v.setUint32(28, rate * 2, true); v.setUint16(32, 2, true);
+      v.setUint16(34, 16, true); str(36, 'data'); v.setUint32(40, n * 2, true);
+      for (let i = 0; i < n; i++) v.setInt16(44 + i * 2, Math.sin(2 * Math.PI * freq * i / rate) * 16000, true);
+      return new Blob([buf], { type: 'audio/wav' });
+    }
+
+    test('chord track registers and describes itself', () => {
+      const { mixer } = chordMixer({ key: 'A', mode: 'minor', progression: 'i VI III VII' });
+      const info = mixer.getTrack('pad').source;
+      assert(info.type === 'chords');
+      assert(info.label === 'Am F C G', info.label);
+      assert(info.error === null);
+    });
+
+    test('pad synth is audible in every pattern', async () => {
+      for (const pattern of ['sustain', 'bloom', 'pulse', 'arpeggio']) {
+        const { ctx } = chordMixer({ progression: 'Am F', bpm: 120, beatsPerChord: 2, pattern, pad: { attack: 0.05, release: 0.2 } });
+        const out = await ctx.startRendering();
+        const peak = peakOf(out, 0.5, 2.5);
+        assert(peak > 0.02 && peak < 2, `${pattern}: peak ${peak}`);
+      }
+    });
+
+    test('every waveform renders', async () => {
+      for (const wave of ['sine', 'triangle', 'sawtooth', 'square']) {
+        const { ctx } = chordMixer({ progression: 'C', pad: { wave, attack: 0.05 } }, 1);
+        assert(peakOf(await ctx.startRendering(), 0.3) > 0.01, wave);
+      }
+    });
+
+    test('a bad progression keeps the last good one and reports why', () => {
+      const { mixer } = chordMixer({ progression: 'Am F' });
+      mixer.updateTrackSource('pad', { progression: 'Am Xq' });
+      const info = mixer.getTrack('pad').source;
+      assert(info.label === 'Am F', info.label);
+      assert(/isn't a chord/.test(info.error), info.error);
+      mixer.updateTrackSource('pad', { progression: 'Dm' });
+      assert(mixer.getTrack('pad').source.error === null);
+    });
+
+    test('sampler plays a dropped sample, repitched', async () => {
+      const ctx = offline(2);
+      const mixer = new AmbientMixer({ audioContext: ctx, autoMood: false, fadeTime: 0.01, masterVolume: 1 });
+      let loaded = false;
+      mixer.on('track', () => { if (mixer.getTrack('pad').source.samples.every(s => s.loaded)) loaded = true; });
+      mixer.addTrack('pad', {
+        type: 'chords', progression: 'C', instrument: 'sampler',
+        sampler: { samples: [{ src: toneWav(2), note: 69, label: 'tone' }], attack: 0.01, release: 0.2 }
+      }, { volume: 1 });
+      for (let i = 0; i < 50 && !loaded; i++) await new Promise(r => setTimeout(r, 20));
+      assert(loaded, 'sample decoded');
+      assert(mixer.getTrack('pad').source.error === null, 'no error once loaded');
+      mixer.play();
+      mixer.tracks.get('pad').source.scheduleUntil(2);
+      assert(peakOf(await ctx.startRendering(), 0.2, 1.5) > 0.05, 'audible');
+    });
+
+    test('sampler with no samples explains what to do', () => {
+      const { mixer } = chordMixer({ instrument: 'sampler' });
+      assert(/Add samples/.test(mixer.getTrack('pad').source.error));
+    });
+
+    test('samples survive edits that come back from describe()', async () => {
+      const { mixer } = chordMixer({ instrument: 'sampler', sampler: { samples: [{ src: 'https://example.com/c4.wav', note: 60 }] } });
+      const listed = mixer.getTrack('pad').source.samples;
+      mixer.updateTrackSource('pad', { sampler: { samples: listed.map(s => ({ ...s, note: 62 })) } });
+      const saved = mixer.toJSON().tracks[0].source.sampler.samples;
+      assert(saved[0].src === 'https://example.com/c4.wav', JSON.stringify(saved));
+      assert(saved[0].note === 62);
+    });
+
+    test('chord settings round-trip through toJSON / load', () => {
+      const { mixer } = chordMixer({ key: 'D', mode: 'dorian', progression: 'i7:2 IV7', bpm: 48, pattern: 'bloom', pad: { warmth: 900 } });
+      const json = JSON.parse(JSON.stringify(mixer.toJSON()));
+      const other = new AmbientMixer({ audioContext: offline(1) });
+      other.load(json);
+      const s = other.getTrack('pad').source.settings;
+      assert(s.key === 'D' && s.mode === 'dorian' && s.bpm === 48 && s.pattern === 'bloom' && s.pad.warmth === 900, JSON.stringify(s));
+      assert(other.getTrack('pad').source.label === 'Dm7 G7');
+    });
+
+    test('position follows playback and stop silences (real context)', async () => {
+      const mixer = new AmbientMixer({ autoMood: false, masterVolume: 1, fadeTime: 0.05 });
+      mixer.addTrack('pad', { type: 'chords', progression: 'Am F', bpm: 240, beatsPerChord: 1, pad: { attack: 0.01, release: 0.05 } }, { volume: 1 });
+      mixer.play();
+      const source = mixer.tracks.get('pad').source;
+      const seen = new Set();
+      for (let i = 0; i < 12; i++) {
+        await new Promise(r => setTimeout(r, 50));
+        seen.add(source.position());
+      }
+      assert(seen.has(0) && seen.has(1), `positions seen: ${[...seen]}`);
+      assert(mixer.getLevel('pad').peak > 0.01, 'audible while playing');
+      mixer.stop();
+      await new Promise(r => setTimeout(r, 700));
+      assert(source.position() === -1, 'no position after stop');
+      mixer.destroy();
+    });
+  </script>
+</body>
+</html>
