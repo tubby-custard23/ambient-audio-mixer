@@ -105,6 +105,11 @@
   // Adding tracks
   // ---------------------------------------------------------------------------
 
+  /** A saved track whose audio file is missing and has this file's name. */
+  function trackMissing(fileName) {
+    return mixer.getTracks().find(t => t.source.type === 'audio' && !t.source.loaded && t.meta.fileName === fileName);
+  }
+
   function addFiles(files) {
     let added = 0;
     [...files].forEach(file => {
@@ -112,14 +117,26 @@
         toast(`“${file.name}” isn't an audio file.`, true);
         return;
       }
+      const missing = trackMissing(file.name);
+      if (missing) {
+        relinkFile(missing.name, file);
+        toast(`Reconnected “${file.name}” to ${missing.name}.`);
+        return;
+      }
       const name = uniqueName(stripName(file.name));
-      if (attempt(() => mixer.addTrack(name, file, { volume: 0.5, meta: { fileName: file.name } }))) {
+      const meta = { fileName: file.name, fileId: window.studio.storeFile(file) };
+      if (attempt(() => mixer.addTrack(name, file, { volume: 0.5, meta }))) {
         added++;
         state.selected = name;
       }
     });
     if (added) render.drawer();
     return added;
+  }
+
+  function relinkFile(name, file) {
+    mixer.updateTrackSource(name, { src: file, label: file.name });
+    mixer.setTrackMeta(name, { fileName: file.name, fileId: window.studio.storeFile(file) });
   }
 
   function addUrl(url) {
@@ -639,8 +656,7 @@
         onchange: (e) => {
           const file = e.target.files[0];
           if (!file) return;
-          mixer.updateTrackSource(name, { src: file, label: file.name });
-          mixer.setTrackMeta(name, { fileName: file.name });
+          relinkFile(name, file);
           render.drawer();
         }
       });
@@ -664,6 +680,7 @@
             const url = urlInput.value.trim();
             if (!url) return;
             mixer.updateTrackSource(name, { src: url, label: url.split('/').pop() });
+            mixer.setTrackMeta(name, { fileName: null, fileId: null });
             render.drawer();
           }
         }, urlInput, h('button', { type: 'submit' }, 'Use URL')));
@@ -764,7 +781,11 @@
   });
 
   // Exposed for the other studio scripts and for poking at in the console.
-  window.studio = { mixer, state, render, h, toast, attempt, drawerTabs, addButtons, uniqueName, select, updateStrip };
+  window.studio = {
+    mixer, state, render, h, toast, attempt, drawerTabs, addButtons, uniqueName, select, updateStrip,
+    // Replaced by studio-storage.js to keep dropped files between visits.
+    storeFile: () => null
+  };
 
   renderMaster();
   renderStrips();

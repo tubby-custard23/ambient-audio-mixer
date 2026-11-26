@@ -238,13 +238,16 @@
       multiple: true,
       hidden: true,
       onchange: (e) => {
-        const added = [...e.target.files].map(file => ({
-          src: file,
-          label: file.name,
-          note: Chords.noteFromName(file.name) ?? 60
-        }));
+        const list = samples.slice();
+        [...e.target.files].forEach(file => {
+          const sample = { src: file, label: file.name, fileId: window.studio.storeFile(file) };
+          // A file chosen again for a saved sample replaces it, keeping its pitch.
+          const missing = list.findIndex(x => x.key.startsWith('missing') && x.label === file.name);
+          if (missing >= 0) list[missing] = { ...list[missing], ...sample, key: undefined };
+          else list.push({ ...sample, note: Chords.noteFromName(file.name) ?? 60 });
+        });
         e.target.value = '';
-        if (added.length) setSamples(samples.concat(added));
+        setSamples(list);
       }
     });
 

@@ -119,7 +119,46 @@ input[type="text"], input[type="url"], input[type="number"], select {
 }
 .mix-title:hover { border-color: var(--line) !important; }
 
-.topbar-actions { display: flex; gap: 0.5rem; }
+.topbar-actions { display: flex; align-items: center; gap: 0.5rem; }
+
+.save-status { color: var(--moss); font-size: 0.875rem; margin-right: 0.25rem; }
+
+.record[aria-pressed="true"] {
+  background: var(--rust);
+  border-color: var(--rust);
+  color: var(--fog);
+}
+
+.menu-anchor { position: relative; }
+.menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.4rem);
+  z-index: 5;
+  width: min(22rem, calc(100vw - 2rem));
+  max-height: 60vh;
+  overflow-y: auto;
+  padding: 0.5rem;
+  background: var(--peat-high);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-m);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+}
+.menu[hidden] { display: none; }
+.menu-new { width: 100%; text-align: left; margin-bottom: 0.4rem; }
+.menu-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.15rem; }
+.menu-mix { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 0.3rem; }
+.menu-open {
+  display: grid;
+  text-align: left;
+  background: transparent;
+  border-color: transparent;
+  min-width: 0;
+}
+.menu-open:disabled { opacity: 1; cursor: default; }
+.menu-mix.current .menu-open { border-left: 3px solid var(--sodium); border-radius: 0 var(--radius-s) var(--radius-s) 0; }
+.menu-title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.menu-meta { font-size: 0.8rem; color: var(--moss); }
 
 /* ---------- Moods ---------- */
 
@@ -602,6 +641,8 @@ input[type="text"], input[type="url"], input[type="number"], select {
   :root { --strip-w: 6.25rem; --strip-h: 20rem; }
   .topbar { padding: 0.75rem 1rem; gap: 0.5rem; flex-wrap: wrap; }
   .mix-title { font-size: 1.25rem; order: 3; flex-basis: 100%; }
+  .topbar-actions { flex-wrap: wrap; }
+  .save-status { display: none; }
   .moods, .drawer { padding-left: 1rem; padding-right: 1rem; }
   .mood-auto { margin-left: 0; }
   .console { padding: 1rem; flex-direction: column; gap: 1rem; }
