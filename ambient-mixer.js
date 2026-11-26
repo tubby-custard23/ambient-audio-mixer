@@ -343,7 +343,7 @@
     audio.addEventListener('error', () => {
       if (!src) return;
       error = isCrossOrigin(src)
-        ? 'This URL could not be loaded. The server may not allow playback from other sites.'
+        ? 'This URL could not be loaded. Check the link, and that its server allows playback from other sites.'
         : 'This file could not be loaded.';
       notify();
     });
