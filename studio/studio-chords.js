@@ -4,22 +4,29 @@
 (function () {
   'use strict';
 
-  const { mixer, state, render, h, toast, attempt, drawerTabs, addButtons, uniqueName } = window.studio;
+  const { mixer, render, toast, attempt, drawerTabs, addButtons, uniqueName, newTrackMeta } = window.studio;
+  const { h, icon, fmt, knob, segmented, toggle, popover, closePopover, menu } = window.ui;
   const Chords = window.AmbientChords;
+  const state = window.studio.state;
 
   const KEYS = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
-  const PATTERNS = {
-    sustain: 'Held',
-    bloom: 'Bloom',
-    pulse: 'Pulse',
-    arpeggio: 'Arpeggio'
+
+  // What each chord does in the key, shown as a colour on its block.
+  const FUNCTIONS = {
+    tonic: { label: 'Stable', color: '#3dff8f' },
+    predominant: { label: 'Moving', color: '#36c5ff' },
+    dominant: { label: 'Tension', color: '#ff9a2e' },
+    color: { label: 'Outside the key', color: '#ff3d9a' }
   };
-  const SPREADS = { close: 'Close', open: 'Open', wide: 'Wide' };
-  const WAVES = { sine: 'Sine', triangle: 'Triangle', sawtooth: 'Saw', square: 'Square' };
+
+  const PATTERNS = [['sustain', 'Held'], ['bloom', 'Bloom'], ['pulse', 'Pulse'], ['arpeggio', 'Arpeggio']];
+  const SPREADS = [['close', 'Close'], ['open', 'Open'], ['wide', 'Wide']];
+  const WAVES = [['sine', 'Sine', 'sine'], ['triangle', 'Triangle', 'triangle'], ['sawtooth', 'Saw', 'sawtooth'], ['square', 'Square', 'square']];
+  const LENGTHS = [[0.5, '½'], [1, '1'], [2, '2'], [3, '3'], [4, '4']];
 
   function addChordTrack() {
     const name = uniqueName('Chords');
-    if (attempt(() => mixer.addTrack(name, { type: 'chords' }, { volume: 0.45 }))) {
+    if (attempt(() => mixer.addTrack(name, { type: 'chords' }, { volume: 0.45, meta: newTrackMeta() }))) {
       mixer.addEffect(name, 'reverb', { size: 6, decay: 3, mix: 0.4 });
       state.selected = name;
       state.tab = 'chords';
@@ -27,64 +34,173 @@
     }
   }
 
-  addButtons.push({ label: 'Chord progression', run: addChordTrack });
-
-  // ---------------------------------------------------------------------------
-  // Controls
-  // ---------------------------------------------------------------------------
+  addButtons.push({ id: 'chords', label: 'Chord progression', hint: 'A synth pad or your own samples', icon: 'keys', run: addChordTrack });
 
   function update(name, opts) {
     mixer.updateTrackSource(name, opts);
   }
 
-  function segmented(label, options, value, onPick) {
-    return h('div', { class: 'segmented', role: 'group', 'aria-label': label },
-      Object.entries(options).map(([key, text]) => h('button', {
-        type: 'button',
-        'aria-pressed': String(key === value),
-        onclick: (e) => {
-          e.currentTarget.parentNode.querySelectorAll('button').forEach(b => {
-            b.setAttribute('aria-pressed', String(b === e.currentTarget));
-          });
-          onPick(key);
-        }
-      }, text)));
+  function modeLabel(mode) {
+    return (Chords.MODES[mode] || Chords.MODES.major).label.toLowerCase();
   }
 
-  /** A labelled slider. spec: { label, min, max, step, log, format } */
-  function slider(spec, value, onChange) {
-    const toPos = (v) => (spec.log
-      ? Math.log(v / spec.min) / Math.log(spec.max / spec.min) * 1000
-      : (v - spec.min) / (spec.max - spec.min) * 1000);
-    const fromPos = (p) => {
-      let v = spec.log ? spec.min * Math.pow(spec.max / spec.min, p / 1000) : spec.min + (p / 1000) * (spec.max - spec.min);
-      if (spec.step) v = Math.round(v / spec.step) * spec.step;
-      return Number(v.toPrecision(4));
-    };
-    const readout = h('output', { class: 'fx-param-value' }, spec.format(value));
-    const input = h('input', {
-      type: 'range',
-      min: 0,
-      max: 1000,
-      value: Math.round(toPos(value)),
-      'aria-label': spec.label,
-      oninput: () => {
-        const v = fromPos(Number(input.value));
-        readout.textContent = spec.format(v);
-        onChange(v);
-      }
-    });
-    return h('label', { class: 'fx-param' }, h('span', { class: 'fx-param-label' }, spec.label), readout, input);
-  }
-
-  const seconds = (v) => (v < 1 ? `${Math.round(v * 1000)} ms` : `${v.toFixed(1)} s`);
-
-  function noteOptions(selected) {
-    const out = [];
-    for (let m = 24; m <= 96; m++) {
-      out.push(h('option', { value: m, selected: m === selected }, Chords.noteName(m, true)));
+  function safeDescribe(token, key, mode) {
+    try {
+      return Chords.describeChord(token, key, mode);
+    } catch (e) {
+      return null;
     }
-    return out;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Chord timeline
+  // ---------------------------------------------------------------------------
+
+  function renderTimeline(name, s) {
+    const tokens = Chords.tokenize(s.progression);
+    const setTokens = (list) => {
+      update(name, { progression: list.join(' ') });
+      render.drawer();
+    };
+
+    const blocks = tokens.map((token, i) => {
+      const info = safeDescribe(token, s.key, s.mode);
+      const length = Number((/:(\d*\.?\d+)$/.exec(token) || [])[1] || 1);
+      const fn = info ? FUNCTIONS[info.fn] : null;
+      const block = h('button', {
+        type: 'button',
+        class: `chord-block${info ? '' : ' invalid'}`,
+        'data-index': i,
+        style: `flex-grow:${length};${fn ? `--fn:${fn.color}` : ''}`,
+        'aria-haspopup': 'true',
+        'aria-expanded': 'false',
+        'aria-label': info ? `${info.name}, ${info.numeral}, ${fn.label}. Edit chord` : `${token}, not a chord. Edit`,
+        onclick: () => popover(block, chordEditor(name, s, tokens, i, setTokens), { label: 'Edit chord', className: 'popover-wide' })
+      },
+      h('span', { class: 'cb-top' },
+        h('span', { class: 'cb-numeral' }, info ? info.numeral : '?'),
+        length !== 1 ? h('span', { class: 'cb-length' }, `×${length === 0.5 ? '½' : length}`) : null),
+      h('span', { class: 'cb-name' }, info ? info.name : token),
+      h('span', { class: 'cb-role' }, info ? info.role : 'Not a chord'));
+      return block;
+    });
+
+    const addBtn = h('button', {
+      type: 'button',
+      class: 'chord-add',
+      'aria-haspopup': 'true',
+      'aria-expanded': 'false',
+      onclick: () => popover(addBtn, chordPalette(s, tokens[tokens.length - 1] || null, (token) => setTokens(tokens.concat(token))),
+        { label: 'Add a chord', className: 'popover-wide', align: 'end' })
+    }, icon('plus', 18), h('span', {}, 'Add chord'));
+
+    return h('div', { class: 'timeline', role: 'list', 'aria-label': 'Progression' },
+      blocks.length ? blocks : h('p', { class: 'hint timeline-empty' }, 'No chords yet. Add one, or pick a progression idea.'),
+      addBtn);
+  }
+
+  /** A menu of chords to add: suggestions, the key's chords, outside chords. */
+  function chordPalette(s, previous, onPick) {
+    const pal = Chords.chordPalette(s.key, s.mode);
+    const prevInfo = previous ? safeDescribe(previous, s.key, s.mode) : null;
+    const item = (c, hint) => ({
+      label: c.name,
+      hint,
+      tag: c.token,
+      swatch: FUNCTIONS[c.fn].color,
+      onSelect: () => onPick(c.token)
+    });
+    return menu([
+      { heading: prevInfo ? `Suggested after ${prevInfo.name}` : 'Suggested to start' },
+      ...Chords.suggestNext(previous, s.key, s.mode).map(c => item(c, c.why)),
+      { separator: true },
+      { heading: `In ${s.key} ${modeLabel(s.mode)}` },
+      ...pal.inKey.map(c => item(c, c.role)),
+      { separator: true },
+      { heading: 'Outside the key' },
+      ...pal.color.map(c => item(c, c.role))
+    ], { label: 'Add a chord', className: 'menu-chords' });
+  }
+
+  /** The editor shown when a chord block is clicked. */
+  function chordEditor(name, s, tokens, index, setTokens) {
+    const token = tokens[index];
+    const info = safeDescribe(token, s.key, s.mode);
+    const replace = (next) => {
+      closePopover();
+      setTokens(tokens.map((t, i) => (i === index ? next : t)));
+    };
+    const length = Number((/:(\d*\.?\d+)$/.exec(token) || [])[1] || 1);
+
+    const variants = Chords.chordVariants(token, s.key, s.mode);
+    const previous = index > 0 ? tokens[index - 1] : null;
+    const swaps = Chords.suggestNext(previous, s.key, s.mode)
+      .filter(c => !info || c.name !== info.name)
+      .map(c => ({ label: c.name, hint: c.why, tag: c.token, swatch: FUNCTIONS[c.fn].color, onSelect: () => replace(Chords.withLength(c.token, length)) }));
+
+    const move = (dir) => {
+      const list = tokens.slice();
+      [list[index], list[index + dir]] = [list[index + dir], list[index]];
+      closePopover();
+      setTokens(list);
+    };
+
+    return h('div', { class: 'chord-editor' },
+      h('header', { class: 'ce-head', style: info ? `--fn:${FUNCTIONS[info.fn].color}` : '' },
+        h('span', { class: 'ce-name' }, info ? info.name : token),
+        h('span', { class: 'ce-numeral' }, info ? info.numeral : ''),
+        h('span', { class: 'ce-role' }, info ? `${FUNCTIONS[info.fn].label}. ${info.role}` : 'This isn’t a chord the parser understands.')),
+      variants.length ? h('section', { class: 'ce-section' },
+        h('p', { class: 'menu-heading' }, 'Flavour'),
+        h('div', { class: 'ce-variants' }, variants.map(v => h('button', {
+          type: 'button',
+          class: 'ce-variant',
+          'aria-pressed': String(v.token === token),
+          title: v.why,
+          onclick: () => replace(v.token)
+        }, h('span', { class: 'ce-variant-name' }, v.name), h('span', { class: 'ce-variant-why' }, v.why))))) : null,
+      h('section', { class: 'ce-section' },
+        h('p', { class: 'menu-heading' }, 'Length in chords'),
+        segmented('Chord length', LENGTHS, length, (v) => replace(Chords.withLength(token, v)), 'segmented-small')),
+      swaps.length ? h('section', { class: 'ce-section' },
+        h('p', { class: 'menu-heading' }, previous ? 'Swap for something that follows the chord before' : 'Swap for an opening chord'),
+        menu(swaps.slice(0, 5), { label: 'Swap chord' })) : null,
+      h('footer', { class: 'ce-actions' },
+        h('button', { type: 'button', class: 'btn btn-small btn-ghost', disabled: index === 0, onclick: () => move(-1) }, icon('chevronLeft', 14), 'Earlier'),
+        h('button', { type: 'button', class: 'btn btn-small btn-ghost', disabled: index === tokens.length - 1, onclick: () => move(1) }, 'Later', icon('chevronRight', 14)),
+        h('span', { class: 'spacer' }),
+        h('button', {
+          type: 'button',
+          class: 'btn btn-small btn-danger-ghost',
+          onclick: () => {
+            closePopover();
+            setTokens(tokens.filter((_, i) => i !== index));
+          }
+        }, icon('trash', 14), 'Remove')));
+  }
+
+  function ideasMenu(name) {
+    const items = [];
+    Chords.MOODS.forEach(mood => {
+      items.push({ heading: mood });
+      Chords.PRESETS.filter(p => p.mood === mood).forEach(p => {
+        let names = '';
+        try {
+          names = Chords.parseProgression(p.progression, p.key, p.mode).map(c => c.name).join(' ');
+        } catch (e) { /* every preset parses; see tests */ }
+        items.push({
+          label: p.name,
+          hint: p.about,
+          tag: names,
+          onSelect: () => {
+            update(name, { key: p.key, mode: p.mode, progression: p.progression });
+            render.drawer();
+            toast(`Loaded “${p.name}”: ${p.progression} in ${p.key} ${modeLabel(p.mode)}.`);
+          }
+        });
+      });
+    });
+    return menu(items, { label: 'Progression ideas', className: 'menu-ideas' });
   }
 
   // ---------------------------------------------------------------------------
@@ -95,133 +211,127 @@
     const info = mixer.getTrack(name).source;
     const s = info.settings;
 
-    // Progression, key and mode
-    const chips = h('ol', { class: 'chord-chips', 'aria-label': 'Chords' });
-    const problem = h('p', { class: 'problem chord-problem', role: 'alert' });
-
-    function showParse() {
-      let parsed = null;
-      try {
-        parsed = Chords.parseProgression(progression.value, keySelect.value, modeSelect.value);
-        problem.textContent = parsed.length ? '' : 'Type some chords to hear them.';
-      } catch (err) {
-        problem.textContent = `${err.message} The last working progression keeps playing.`;
-      }
-      if (parsed && parsed.length) {
-        chips.replaceChildren(...parsed.map(c => h('li', {
-          class: 'chord-chip',
-          style: `flex-grow:${c.length}`,
-          title: c.token
-        }, c.name)));
-      }
-      return parsed;
-    }
-
-    let typingTimer = null;
-    const progression = h('input', {
-      type: 'text',
-      class: 'chord-input',
-      value: s.progression,
-      spellcheck: false,
-      autocomplete: 'off',
-      'aria-label': 'Progression',
-      oninput: () => {
-        clearTimeout(typingTimer);
-        typingTimer = setTimeout(() => {
-          if (showParse()) update(name, { progression: progression.value });
-        }, 250);
-      }
-    });
-
     const keySelect = h('select', {
+      class: 'field select',
       'aria-label': 'Key',
-      onchange: () => { update(name, { key: keySelect.value }); showParse(); }
+      onchange: () => { update(name, { key: keySelect.value }); render.drawer(); }
     }, KEYS.map(k => h('option', { value: k, selected: Chords.pitchClass(k) === Chords.pitchClass(s.key) }, k)));
 
     const modeSelect = h('select', {
+      class: 'field select',
       'aria-label': 'Mode',
-      onchange: () => { update(name, { mode: modeSelect.value }); showParse(); }
+      onchange: () => { update(name, { mode: modeSelect.value }); render.drawer(); }
     }, Object.entries(Chords.MODES).map(([k, m]) => h('option', { value: k, selected: k === s.mode }, m.label)));
 
-    const preset = h('select', {
-      'aria-label': 'Start from a preset',
-      onchange: () => {
-        const p = Chords.PRESETS[Number(preset.value)];
-        if (!p) return;
-        update(name, { key: p.key, mode: p.mode, progression: p.progression });
-        render.drawer();
-        toast(`Loaded “${p.name}”: ${p.progression} in ${p.key} ${Chords.MODES[p.mode].label.toLowerCase()}.`);
+    const ideasBtn = h('button', {
+      type: 'button',
+      class: 'btn',
+      'aria-haspopup': 'true',
+      'aria-expanded': 'false',
+      onclick: () => popover(ideasBtn, ideasMenu(name), { label: 'Progression ideas', className: 'popover-wide' })
+    }, icon('book', 14), 'Progression ideas', icon('chevronDown', 14));
+
+    // Text editing for people who'd rather type
+    const problem = h('p', { class: 'text-problem', role: 'alert' });
+    let typingTimer = null;
+    const text = h('input', {
+      type: 'text',
+      class: 'field mono progression-text',
+      value: s.progression,
+      spellcheck: false,
+      autocomplete: 'off',
+      'aria-label': 'Progression as text',
+      oninput: () => {
+        clearTimeout(typingTimer);
+        typingTimer = setTimeout(() => {
+          try {
+            const parsed = Chords.parseProgression(text.value, s.key, s.mode);
+            problem.textContent = parsed.length ? '' : 'Type some chords to hear them.';
+            if (!parsed.length) return;
+            update(name, { progression: text.value });
+            const fresh = renderTimeline(name, { ...s, progression: text.value });
+            panel.querySelector('.timeline').replaceWith(fresh);
+          } catch (err) {
+            problem.textContent = `${err.message} The last working progression keeps playing.`;
+          }
+        }, 300);
       }
-    },
-    h('option', { value: '' }, 'Start from a preset…'),
-    Chords.PRESETS.map((p, i) => h('option', { value: i }, `${p.name} (${p.progression})`)));
+    });
 
-    showParse();
+    const legend = h('ul', { class: 'legend', 'aria-label': 'Chord colours' },
+      Object.values(FUNCTIONS).map(f => h('li', { style: `--fn:${f.color}` }, f.label)));
 
-    const harmony = h('section', { class: 'chord-section chord-harmony' },
-      h('h3', {}, 'Progression'),
-      h('div', { class: 'row' },
-        h('label', { class: 'chord-field' }, 'Key', keySelect),
-        h('label', { class: 'chord-field' }, 'Mode', modeSelect),
-        preset),
-      progression,
-      problem,
-      chips,
-      h('p', { class: 'chord-help' },
-        'Use Roman numerals that follow the key, like ', h('code', {}, 'i VI III VII'),
-        ', or chord names like ', h('code', {}, 'Am F C G'),
-        '. Add 7, maj7, sus2, sus4, add9, ° or a bass note (', h('code', {}, 'G/B'),
-        '). ', h('code', {}, 'Am:2'), ' holds a chord twice as long. Edits take effect from the next chord.'));
+    const harmony = h('section', { class: 'chords-harmony' },
+      h('div', { class: 'toolbar' },
+        h('label', { class: 'field-label' }, h('span', {}, 'Key'), keySelect),
+        h('label', { class: 'field-label' }, h('span', {}, 'Mode'), modeSelect),
+        ideasBtn,
+        h('span', { class: 'spacer' }),
+        legend),
+      renderTimeline(name, s),
+      h('div', { class: 'text-row' },
+        h('label', { class: 'text-label', for: `progression-${name}` }, 'As text'),
+        text,
+        h('span', { class: 'hint text-help', title: 'Roman numerals follow the key; chord names are absolute.' },
+          'Numerals like i VI III VII or names like Am F C G. Am:2 holds a chord twice as long.')),
+      problem);
+    text.id = `progression-${name}`;
 
-    // Timing and pattern
-    const timing = h('section', { class: 'chord-section' },
-      h('h3', {}, 'Rhythm'),
-      slider({ label: 'Tempo', min: 20, max: 160, step: 1, format: v => `${v} bpm` }, s.bpm,
-        v => update(name, { bpm: v })),
-      slider({ label: 'Chord length', min: 1, max: 32, step: 1, format: v => `${v} beat${v === 1 ? '' : 's'}` }, s.beatsPerChord,
-        v => update(name, { beatsPerChord: v })),
-      h('div', { class: 'fx-param' },
-        h('span', { class: 'fx-param-label' }, 'Pattern'),
-        segmented('Pattern', PATTERNS, s.pattern, v => update(name, { pattern: v }))));
+    const k = (opts) => knob(opts).el;
 
-    // Voicing
-    const voicing = h('section', { class: 'chord-section' },
-      h('h3', {}, 'Voicing'),
-      slider({ label: 'Register', min: 1, max: 5, step: 1, format: v => `Octave ${v}` }, s.octave,
-        v => update(name, { octave: v })),
-      h('div', { class: 'fx-param' },
-        h('span', { class: 'fx-param-label' }, 'Spread'),
-        segmented('Spread', SPREADS, s.spread, v => update(name, { spread: v }))),
-      h('label', { class: 'check' },
-        h('input', { type: 'checkbox', checked: s.voiceLeading, onchange: e => update(name, { voiceLeading: e.target.checked }) }),
-        ' Smooth voice leading'),
-      h('label', { class: 'check' },
-        h('input', { type: 'checkbox', checked: s.bass, onchange: e => update(name, { bass: e.target.checked }) }),
-        ' Bass note'));
+    const rhythm = h('section', { class: 'panel-card' },
+      h('h3', { class: 'card-title' }, 'Rhythm'),
+      h('div', { class: 'knob-row' },
+        k({ label: 'Tempo', value: s.bpm, min: 20, max: 160, step: 1, default: 60, format: v => `${v}bpm`, onInput: v => update(name, { bpm: v }) }),
+        k({ label: 'Chord length', value: s.beatsPerChord, min: 1, max: 32, step: 1, default: 8, format: v => `${v} beat${v === 1 ? '' : 's'}`, onInput: v => update(name, { beatsPerChord: v }) })),
+      h('div', { class: 'control-row' },
+        h('span', { class: 'control-label' }, 'Pattern'),
+        segmented('Pattern', PATTERNS, s.pattern, v => update(name, { pattern: v }), 'segmented-small')));
 
-    // Instrument
-    const instrument = h('section', { class: 'chord-section' },
-      h('h3', {}, 'Instrument'),
-      segmented('Instrument', { pad: 'Synth pad', sampler: 'Samples' }, s.instrument, v => {
+    const voicing = h('section', { class: 'panel-card' },
+      h('h3', { class: 'card-title' }, 'Voicing'),
+      h('div', { class: 'knob-row' },
+        k({ label: 'Register', value: s.octave, min: 1, max: 5, step: 1, default: 3, format: v => `Octave ${v}`, onInput: v => update(name, { octave: v }) })),
+      h('div', { class: 'control-row' },
+        h('span', { class: 'control-label' }, 'Spread'),
+        segmented('Spread', SPREADS, s.spread, v => update(name, { spread: v }), 'segmented-small')),
+      toggle('Smooth voice leading', s.voiceLeading, v => update(name, { voiceLeading: v })),
+      toggle('Bass note', s.bass, v => update(name, { bass: v })));
+
+    const instrument = h('section', { class: 'panel-card instrument-card' },
+      h('h3', { class: 'card-title' }, 'Instrument'),
+      segmented('Instrument', [['pad', 'Synth pad'], ['sampler', 'Samples']], s.instrument, v => {
         update(name, { instrument: v });
         render.drawer();
-      }),
+      }, 'segmented-small'),
       s.instrument === 'pad' ? renderPad(name, s.pad) : renderSampler(name, info));
 
-    return h('div', { class: 'chords-panel', 'data-track': name }, harmony, timing, voicing, instrument);
+    const panel = h('div', { class: 'chords-panel', 'data-track': name },
+      harmony,
+      h('div', { class: 'cards' }, rhythm, voicing, instrument));
+    return panel;
   }
 
   function renderPad(name, p) {
     const set = (key) => (v) => update(name, { pad: { [key]: v } });
-    return h('div', { class: 'fx-params' },
-      h('div', { class: 'fx-param' },
-        h('span', { class: 'fx-param-label' }, 'Wave'),
-        segmented('Wave', WAVES, p.wave, set('wave'))),
-      slider({ label: 'Warmth', min: 200, max: 12000, log: true, format: v => (v >= 1000 ? `${(v / 1000).toFixed(1)} kHz` : `${Math.round(v)} Hz`) }, p.warmth, set('warmth')),
-      slider({ label: 'Voices per note', min: 1, max: 4, step: 1, format: v => String(v) }, p.unison, set('unison')),
-      slider({ label: 'Detune', min: 0, max: 40, step: 1, format: v => `${v} cents` }, p.detune, set('detune')),
-      slider({ label: 'Fade in', min: 0.01, max: 8, log: true, format: seconds }, p.attack, set('attack')),
-      slider({ label: 'Fade out', min: 0.05, max: 12, log: true, format: seconds }, p.release, set('release')));
+    return h('div', { class: 'instrument' },
+      h('div', { class: 'control-row' },
+        h('span', { class: 'control-label' }, 'Wave'),
+        segmented('Wave', WAVES, p.wave, set('wave'), 'segmented-icons')),
+      h('div', { class: 'knob-row' },
+        knob({ label: 'Warmth', value: p.warmth, min: 200, max: 12000, log: true, default: 1400, format: v => `${fmt.hz(v)}Hz`, onInput: set('warmth') }).el,
+        knob({ label: 'Voices', value: p.unison, min: 1, max: 4, step: 1, default: 2, format: v => String(v), onInput: set('unison') }).el,
+        knob({ label: 'Detune', value: p.detune, min: 0, max: 40, step: 1, default: 12, format: v => `${v}ct`, onInput: set('detune') }).el,
+        knob({ label: 'Fade in', value: p.attack, min: 0.01, max: 8, log: true, default: 2.5, format: fmt.seconds, onInput: set('attack') }).el,
+        knob({ label: 'Fade out', value: p.release, min: 0.05, max: 12, log: true, default: 4, format: fmt.seconds, onInput: set('release') }).el));
+  }
+
+  function noteOptions(selected) {
+    const out = [];
+    for (let m = 24; m <= 96; m++) {
+      out.push(h('option', { value: m, selected: m === selected }, Chords.noteName(m, true)));
+    }
+    return out;
   }
 
   function renderSampler(name, info) {
@@ -253,31 +363,31 @@
 
     const rows = samples.map((sample, i) => {
       const missing = sample.key.startsWith('missing');
-      const status = sample.failed ? ' (could not be loaded)' : missing ? ' (choose the file again)' : !sample.loaded ? ' (loading…)' : '';
+      const status = sample.failed ? 'Could not be loaded' : missing ? 'Choose the file again' : !sample.loaded ? 'Loading…' : null;
       return h('li', { class: 'sample-row' },
         h('span', { class: `sample-name${sample.failed || missing ? ' problem' : ''}`, title: sample.label },
-          sample.label || 'Sample', status),
+          sample.label || 'Sample', status ? h('small', {}, status) : null),
         h('select', {
+          class: 'field select field-small',
           'aria-label': `Pitch of ${sample.label || 'sample'}`,
           onchange: (e) => setSamples(samples.map((x, j) => (j === i ? { ...x, note: Number(e.target.value) } : x)))
         }, noteOptions(sample.note)),
-      h('button', {
-        type: 'button', class: 'quiet', 'aria-label': `Remove ${sample.label || 'sample'}`,
-        onclick: () => setSamples(samples.filter((_, j) => j !== i))
-      }, '×'));
+        h('button', {
+          type: 'button', class: 'icon-btn', 'aria-label': `Remove ${sample.label || 'sample'}`, title: 'Remove',
+          onclick: () => setSamples(samples.filter((_, j) => j !== i))
+        }, icon('close', 14)));
     });
 
     const set = (key) => (v) => update(name, { sampler: { [key]: v } });
-    return h('div', { class: 'fx-params' },
-      h('p', { class: 'chord-help' }, 'Add one or more recordings of single notes, such as a piano key or a bowed string. Each chord note uses the closest sample, shifted in pitch. A note in the file name (piano-C4.wav) sets its pitch.'),
+    return h('div', { class: 'instrument' },
+      h('p', { class: 'hint' }, 'Add recordings of single notes, like a piano key or a bowed string. Each chord note uses the closest sample, shifted in pitch. A note in the file name (piano-C4.wav) sets its pitch.'),
       samples.length ? h('ul', { class: 'sample-list' }, rows) : null,
       h('div', { class: 'row' }, fileInput,
-        h('button', { type: 'button', onclick: () => fileInput.click() }, 'Add samples')),
-      slider({ label: 'Fade in', min: 0.005, max: 8, log: true, format: seconds }, s.attack, set('attack')),
-      slider({ label: 'Fade out', min: 0.05, max: 12, log: true, format: seconds }, s.release, set('release')),
-      h('label', { class: 'check' },
-        h('input', { type: 'checkbox', checked: s.loop, onchange: e => update(name, { sampler: { loop: e.target.checked } }) }),
-        ' Loop samples so long chords keep sounding'));
+        h('button', { type: 'button', class: 'btn', onclick: () => fileInput.click() }, icon('plus', 14), 'Add samples')),
+      h('div', { class: 'knob-row' },
+        knob({ label: 'Fade in', value: s.attack, min: 0.005, max: 8, log: true, default: 0.01, format: fmt.seconds, onInput: set('attack') }).el,
+        knob({ label: 'Fade out', value: s.release, min: 0.05, max: 12, log: true, default: 1.5, format: fmt.seconds, onInput: set('release') }).el),
+      toggle('Loop samples so long chords keep sounding', s.loop, v => update(name, { sampler: { loop: v } })));
   }
 
   drawerTabs.unshift({
@@ -292,7 +402,9 @@
     const panel = document.querySelector('.chords-panel');
     if (panel && mixer.hasTrack(panel.dataset.track)) {
       const index = mixer.getIsPlaying() ? mixer.getSource(panel.dataset.track).position() : -1;
-      panel.querySelectorAll('.chord-chip').forEach((chip, i) => chip.classList.toggle('now', i === index));
+      panel.querySelectorAll('.chord-block').forEach(block => {
+        block.classList.toggle('now', Number(block.dataset.index) === index);
+      });
     }
     requestAnimationFrame(tick);
   }

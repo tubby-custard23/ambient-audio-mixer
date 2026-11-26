@@ -6,18 +6,25 @@
   <title>Ambient Studio</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans+Condensed:wght@400;500;600&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap">
   <link rel="stylesheet" href="studio.css">
 </head>
 <body>
-  <header class="topbar">
-    <button class="transport" id="transport" type="button" aria-pressed="false">
-      <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v15l12.5-7.5z"/></svg>
-      <svg class="transport-stop" viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="1.5"/></svg>
-      <span class="transport-label">Play</span>
-    </button>
+  <header class="bar">
+    <div class="brand" aria-hidden="true">
+      <span class="brand-mark"></span>
+      <span class="brand-name">Ambient Studio</span>
+    </div>
+    <div class="transport" id="transport-group">
+      <button class="tbtn tbtn-play" id="transport" type="button" aria-pressed="false" aria-label="Play" title="Play (Space)">
+        <svg class="i-play" width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v15l12.5-7.5z" fill="currentColor"/></svg>
+        <svg class="i-stop" width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2" fill="currentColor"/></svg>
+      </button>
+    </div>
+    <output class="clock" id="clock" aria-label="Time playing">00:00.0</output>
     <input class="mix-title" id="mix-title" type="text" value="Untitled mix" aria-label="Mix name" spellcheck="false">
-    <div class="topbar-actions" id="topbar-actions"></div>
+    <div class="bar-actions" id="topbar-actions"></div>
+    <div class="bar-meter" id="bar-meter" title="Master level"></div>
   </header>
 
   <nav class="moods" id="moods" aria-label="Moods"></nav>
@@ -27,7 +34,7 @@
     <div class="master-slot" id="master-slot"></div>
   </main>
 
-  <section class="drawer" id="drawer" aria-live="polite"></section>
+  <section class="detail" id="drawer" aria-label="Selected channel"></section>
 
   <div class="drop-overlay" id="drop-overlay" hidden>
     <p>Drop audio files to add them as tracks</p>
@@ -38,6 +45,7 @@
 
   <script src="../ambient-mixer.js"></script>
   <script src="../ambient-chords.js"></script>
+  <script src="studio-controls.js"></script>
   <script src="studio.js"></script>
   <script src="studio-effects.js"></script>
   <script src="studio-chords.js"></script>

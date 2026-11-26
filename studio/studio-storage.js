@@ -9,7 +9,8 @@
   'use strict';
 
   const studio = window.studio;
-  const { mixer, state, render, h, toast } = studio;
+  const { mixer, state, render, toast } = studio;
+  const { h } = window.ui;
   const titleInput = document.getElementById('mix-title');
 
   // ---------------------------------------------------------------------------
@@ -200,38 +201,44 @@
   // Mixes menu
   // ---------------------------------------------------------------------------
 
-  const menu = h('div', { class: 'menu', id: 'mix-menu', hidden: true });
-  const menuButton = h('button', {
-    type: 'button',
-    'aria-expanded': 'false',
-    'aria-controls': 'mix-menu',
-    onclick: () => (menu.hidden ? openMenu() : closeMenu())
-  }, 'Mixes');
-
+  const { icon, popover, closePopover } = window.ui;
   let confirmDelete = null;
 
-  async function openMenu() {
+  const menuButton = h('button', {
+    type: 'button',
+    class: 'btn',
+    'aria-haspopup': 'true',
+    'aria-expanded': 'false',
+    onclick: () => openMenu(true)
+  }, icon('layers', 14), h('span', { class: 'label-wide' }, 'Mixes'), icon('chevronDown', 14));
+
+  async function openMenu(toggle) {
+    if (toggle && menuButton.getAttribute('aria-expanded') === 'true') {
+      closePopover();
+      return;
+    }
     await save();
     const list = await mixes.list();
     const rows = list.map(m => {
       const isCurrent = m.id === currentId;
       const confirming = confirmDelete === m.id;
-      return h('li', { class: `menu-mix${isCurrent ? ' current' : ''}` },
+      return h('li', { class: `mix-row${isCurrent ? ' current' : ''}` },
         h('button', {
           type: 'button',
-          class: 'menu-open',
+          class: 'mix-open',
+          role: 'menuitem',
           disabled: isCurrent,
           onclick: async () => {
-            closeMenu();
+            closePopover();
             const mix = await mixes.get(m.id);
             if (mix) open(mix.data, mix.id).catch(err => toast(err.message, true));
           }
         },
-        h('span', { class: 'menu-title' }, m.title),
-        h('span', { class: 'menu-meta' }, isCurrent ? 'Open now' : new Date(m.updated).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }))),
+        h('span', { class: 'mix-title-text' }, m.title),
+        h('span', { class: 'mix-meta' }, isCurrent ? 'Open now' : new Date(m.updated).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }))),
         h('button', {
           type: 'button',
-          class: confirming ? 'danger' : 'quiet',
+          class: `btn btn-small ${confirming ? 'btn-danger' : 'btn-ghost'}`,
           'aria-label': confirming ? `Delete ${m.title} for good` : `Delete ${m.title}`,
           onclick: async () => {
             if (!confirming) {
@@ -250,31 +257,22 @@
             openMenu();
             toast(`Deleted “${m.title}”.`);
           }
-        }, confirming ? 'Delete for good' : 'Delete'));
+        }, confirming ? 'Delete for good' : icon('trash', 14)));
     });
 
-    menu.replaceChildren(
-      h('button', { type: 'button', class: 'menu-new', onclick: newMix }, 'New mix'),
-      rows.length ? h('ul', { class: 'menu-list' }, rows) : h('p', { class: 'drawer-hint' }, 'Mixes you make are saved here automatically.'));
-    menu.hidden = false;
-    menuButton.setAttribute('aria-expanded', 'true');
+    popover(menuButton, h('div', { class: 'mixes' },
+      h('button', { type: 'button', class: 'menu-item', role: 'menuitem', onclick: newMix },
+        icon('plus', 16), h('span', { class: 'menu-text' }, h('span', { class: 'menu-label' }, 'New mix'))),
+      h('div', { class: 'menu-sep' }),
+      rows.length
+        ? h('ul', { class: 'mix-list', role: 'menu' }, rows)
+        : h('p', { class: 'hint pad' }, 'Mixes you make are saved here automatically.')),
+    { align: 'end', label: 'Mixes', keepOpen: true, onClose: () => { confirmDelete = null; } });
   }
 
   function closeMenu() {
-    menu.hidden = true;
-    confirmDelete = null;
-    menuButton.setAttribute('aria-expanded', 'false');
+    closePopover();
   }
-
-  document.addEventListener('click', (e) => {
-    if (!menu.hidden && !e.target.closest('#mix-menu') && e.target !== menuButton) closeMenu();
-  });
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && !menu.hidden) {
-      closeMenu();
-      menuButton.focus();
-    }
-  });
 
   // ---------------------------------------------------------------------------
   // Export and import
@@ -340,12 +338,15 @@
   let recorder = null;
   let recordStart = 0;
   let recordTimer = null;
+  const recordLabel = h('span', { class: 'rec-time' });
   const recordButton = h('button', {
     type: 'button',
-    class: 'record',
+    class: 'tbtn tbtn-rec',
     'aria-pressed': 'false',
+    'aria-label': 'Record to a file',
+    title: 'Record what you hear to an audio file',
     onclick: () => (recorder ? stopRecording() : startRecording())
-  }, 'Record');
+  }, icon('record', 14), recordLabel);
 
   function startRecording() {
     if (typeof MediaRecorder === 'undefined') {
@@ -365,16 +366,18 @@
       download(new Blob(chunks, { type: mime }), `${safeFileName()}.${ext}`);
       recorder = null;
       clearInterval(recordTimer);
-      recordButton.textContent = 'Record';
+      recordLabel.textContent = '';
       recordButton.setAttribute('aria-pressed', 'false');
+      recordButton.setAttribute('aria-label', 'Record to a file');
       toast('Saved the recording to your downloads.');
     };
     recorder.start(1000);
     recordStart = Date.now();
     recordButton.setAttribute('aria-pressed', 'true');
+    recordButton.setAttribute('aria-label', 'Stop recording and save the file');
     const tick = () => {
       const s = Math.floor((Date.now() - recordStart) / 1000);
-      recordButton.textContent = `Stop recording ${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+      recordLabel.textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
     };
     tick();
     recordTimer = setInterval(tick, 500);
@@ -390,12 +393,14 @@
   // Start up
   // ---------------------------------------------------------------------------
 
+  document.getElementById('transport-group').append(recordButton);
   document.getElementById('topbar-actions').replaceChildren(
     status,
-    recordButton,
-    h('span', { class: 'menu-anchor' }, menuButton, menu),
-    h('button', { type: 'button', class: 'quiet', onclick: exportMix }, 'Export'),
-    h('button', { type: 'button', class: 'quiet', onclick: () => importInput.click() }, 'Import'),
+    menuButton,
+    h('button', { type: 'button', class: 'btn btn-ghost', title: 'Download this mix as a JSON file', onclick: exportMix },
+      icon('exportFile', 14), h('span', { class: 'label-wide' }, 'Export')),
+    h('button', { type: 'button', class: 'btn btn-ghost', title: 'Open a mix from a JSON file', onclick: () => importInput.click() },
+      icon('importFile', 14), h('span', { class: 'label-wide' }, 'Import')),
     importInput);
 
   (async () => {
