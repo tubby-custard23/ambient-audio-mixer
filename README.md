@@ -15,6 +15,16 @@ A lightweight JavaScript library for creating dynamic, atmospheric soundscapes o
 - **Easy Integration**: Simple API, no dependencies
 - **Customizable UI**: Included CSS with theme variants
 
+## Ambient Studio
+
+`studio/index.html` is a mixing desk built on the library. Open it in a browser (no build step or server needed) to:
+
+- add tracks from audio files (drag them onto the page), URLs, or generated noise
+- mix with faders, pan, mute and solo while watching live meters
+- save mixes as moods and crossfade between them, by hand or on a cycle
+
+Press Space to play or stop.
+
 ## Quick Start
 
 ### 1. Include the Files
