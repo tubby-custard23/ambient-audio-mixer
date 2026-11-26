@@ -232,10 +232,13 @@
     };
   }
 
-  /** Split a progression into chords. Separators: spaces, commas, bars, dashes. */
+  /** Split a progression into chord tokens. Separators: spaces, commas, bars, dashes. */
+  function tokenize(text) {
+    return String(text).split(/[\s,|–—]+|-(?=\s|$|[b#♭♯]?[ivIVA-G])/).filter(t => t && t !== '-');
+  }
+
   function parseProgression(text, key = 'C', mode = 'major') {
-    const tokens = String(text).split(/[\s,|–—]+|-(?=\s|$|[b#♭♯]?[ivIVA-G])/).filter(t => t && t !== '-');
-    return tokens.map(t => parseChord(t, key, mode));
+    return tokenize(text).map(t => parseChord(t, key, mode));
   }
 
   /**
@@ -291,16 +294,248 @@
     return { notes: best, bass };
   }
 
+  /** Named progressions, grouped by mood, with a line on why they work. */
   const PRESETS = [
-    { name: 'Night drive', key: 'A', mode: 'minor', progression: 'i VI III VII' },
-    { name: 'Lament', key: 'C', mode: 'minor', progression: 'i iv VI V' },
-    { name: 'Dread', key: 'E', mode: 'phrygian', progression: 'i II i vii' },
-    { name: 'Uncanny', key: 'C', mode: 'major', progression: 'I bIII I bVI' },
-    { name: 'Weightless', key: 'D', mode: 'lydian', progression: 'Imaj7 II Imaj7 II' },
-    { name: 'Hymn', key: 'F', mode: 'major', progression: 'Iadd9 V vi IV' },
-    { name: 'Open fields', key: 'G', mode: 'mixolydian', progression: 'Isus2 VII IV Isus4' },
-    { name: 'Long shadow', key: 'D', mode: 'dorian', progression: 'i7:2 IV7 bVImaj7' }
+    { name: 'Night drive', mood: 'Dark', key: 'A', mode: 'minor', progression: 'i VI III VII', about: 'The minor loop behind countless film cues. It circles without ever fully landing.' },
+    { name: 'Andalusian descent', mood: 'Dark', key: 'A', mode: 'minor', progression: 'i VII VI V', about: 'The bass falls step by step to a major five that pulls back to the start.' },
+    { name: 'Lament', mood: 'Dark', key: 'C', mode: 'minor', progression: 'i iv VI V', about: 'Minor four for sorrow, then a major five for a strong pull home.' },
+    { name: 'Long shadow', mood: 'Dark', key: 'D', mode: 'dorian', progression: 'i7:2 IV7 bVImaj7', about: 'Dorian’s major four brightens a minor home; the flat six closes the light again.' },
+    { name: 'Dread', mood: 'Eerie', key: 'E', mode: 'phrygian', progression: 'i II i vii', about: 'Phrygian’s half step above home sounds like something leaning in too close.' },
+    { name: 'Uncanny', mood: 'Eerie', key: 'C', mode: 'major', progression: 'I bIII I bVI', about: 'Chromatic mediants: major chords a third apart that share a note but feel like a different world.' },
+    { name: 'Neapolitan pulse', mood: 'Eerie', key: 'A', mode: 'minor', progression: 'i bII i bII', about: 'Home and the chord a half step above it, rocking back and forth.' },
+    { name: 'Rising unease', mood: 'Eerie', key: 'C', mode: 'major', progression: 'I I+ vi IV', about: 'One note creeps up a half step at a time through an augmented chord.' },
+    { name: 'Diminished stairs', mood: 'Tense', key: 'A', mode: 'minor', progression: 'i #iv° iv V', about: 'A diminished chord on the sharp four squeezes the bass toward the five.' },
+    { name: 'Climb', mood: 'Tense', key: 'C', mode: 'minor', progression: 'Cm Db D Eb', about: 'The whole chord climbs a half step at a time. No key can hold it.' },
+    { name: 'Held breath', mood: 'Tense', key: 'D', mode: 'minor', progression: 'i:2 bII:2 V7sus4 V7', about: 'A suspended five delays the resolution as long as possible.' },
+    { name: 'Hymn', mood: 'Hopeful', key: 'F', mode: 'major', progression: 'Iadd9 V vi IV', about: 'The pop axis, softened with an added ninth on home.' },
+    { name: 'Amen glow', mood: 'Hopeful', key: 'D', mode: 'major', progression: 'Isus2 IV Isus2 IV', about: 'Plagal motion: four back to home, the soft “amen” cadence, without any dominant tension.' },
+    { name: 'Picardy', mood: 'Hopeful', key: 'A', mode: 'minor', progression: 'i iv i I', about: 'A minor loop that ends on a major home, like light breaking through.' },
+    { name: 'Sunrise', mood: 'Hopeful', key: 'G', mode: 'major', progression: 'I iii IV iv', about: 'Major four sinks into minor four for a bittersweet turn before home.' },
+    { name: 'Weightless', mood: 'Dreamy', key: 'D', mode: 'lydian', progression: 'Imaj7 II Imaj7 II', about: 'Lydian’s major two floats home upward instead of pulling it down.' },
+    { name: 'Open fields', mood: 'Dreamy', key: 'G', mode: 'mixolydian', progression: 'Isus2 VII IV Isus4', about: 'Mixolydian’s flat seven keeps things open and unhurried.' },
+    { name: 'Floating', mood: 'Dreamy', key: 'C', mode: 'major', progression: 'Imaj7 iii7 vi7 IVmaj7', about: 'Seventh chords everywhere blur the edges between chords.' },
+    { name: 'Tidal', mood: 'Dreamy', key: 'E', mode: 'major', progression: 'I:2 bVII:2', about: 'Two chords a whole step apart, swaying like water.' }
   ];
+
+  const MOODS = ['Dark', 'Eerie', 'Tense', 'Hopeful', 'Dreamy'];
+
+  const NUMERALS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'];
+
+  /** Quality of the triad built on a scale degree (1–7). */
+  function triadQuality(steps, degree) {
+    const at = (i) => steps[(degree - 1 + i) % 7] + (degree - 1 + i >= 7 ? 12 : 0);
+    const third = at(2) - at(0);
+    const fifth = at(4) - at(0);
+    if (third === 4 && fifth === 8) return 'aug';
+    if (third === 3 && fifth === 6) return 'dim';
+    return third === 4 ? 'major' : 'minor';
+  }
+
+  function numeral(degree, quality, accidental = '') {
+    const n = NUMERALS[degree - 1];
+    const cased = quality === 'major' || quality === 'aug' ? n : n.toLowerCase();
+    return accidental + cased + (quality === 'dim' ? '°' : quality === 'aug' ? '+' : '');
+  }
+
+  // The usual degree for each semitone above the tonic (♭2, ♭3, ♯4, ♭6, ♭7).
+  const SEMITONE_DEGREE = [1, 2, 2, 3, 3, 4, 4, 5, 6, 6, 7, 7];
+
+  /** The numeral for a root a number of semitones above the tonic. */
+  function degreeOf(semis, steps) {
+    semis = ((semis % 12) + 12) % 12;
+    const degree = SEMITONE_DEGREE[semis];
+    const diff = semis - steps[degree - 1];
+    if (diff === 0) return { degree, accidental: '' };
+    if (diff === -1) return { degree, accidental: 'b' };
+    if (diff === 1) return { degree, accidental: '#' };
+    let i = steps.indexOf(semis);
+    if (i >= 0) return { degree: i + 1, accidental: '' };
+    i = steps.indexOf((semis + 1) % 12);
+    if (i >= 0) return { degree: i + 1, accidental: 'b' };
+    i = steps.indexOf((semis + 11) % 12);
+    return { degree: i + 1, accidental: '#' };
+  }
+
+  const ROLES = {
+    1: { fn: 'tonic', role: 'Home' },
+    2: { fn: 'predominant', role: 'Moves away, leads on' },
+    3: { fn: 'tonic', role: 'Soft stand-in for home' },
+    4: { fn: 'predominant', role: 'Lift away from home' },
+    5: { fn: 'dominant', role: 'Tension that wants home' },
+    6: { fn: 'tonic', role: 'Home’s shadow' },
+    7: { fn: 'dominant', role: 'Unstable, leans home' }
+  };
+
+  function qualityOf(intervals) {
+    if (intervals.includes(4)) return intervals.includes(8) && !intervals.includes(7) ? 'aug' : 'major';
+    if (intervals.includes(3)) return intervals.includes(6) && !intervals.includes(7) ? 'dim' : 'minor';
+    return 'major'; // sus and power chords read as major
+  }
+
+  /**
+   * What a chord does in a key: its numeral, function and role.
+   * fn is tonic, predominant, dominant, or color (outside the key).
+   */
+  function describeChord(token, key = 'C', mode = 'major') {
+    const chord = typeof token === 'string' ? parseChord(token, key, mode) : token;
+    const steps = (MODES[mode] || MODES.major).steps;
+    const { degree, accidental } = degreeOf(chord.root - pitchClass(key), steps);
+    const quality = qualityOf(chord.intervals);
+    const sus = !chord.intervals.includes(3) && !chord.intervals.includes(4);
+    const diatonic = !accidental && (sus || quality === triadQuality(steps, degree));
+    let role = ROLES[degree].role;
+    if (degree === 7 && diatonic && quality === 'major') role = 'Step below home, modal';
+    return {
+      name: chord.name,
+      numeral: numeral(degree, quality, accidental),
+      degree,
+      diatonic,
+      fn: diatonic ? ROLES[degree].fn : 'color',
+      role: diatonic ? role : 'Outside the key'
+    };
+  }
+
+  // Chords from outside the key that sound good in most keys,
+  // as semitones above the tonic.
+  const COLOR_CHORDS = [
+    [5, 'minor', 'Minor four: bittersweet'],
+    [8, 'major', 'Flat six: big, cinematic'],
+    [10, 'major', 'Flat seven: open, modal'],
+    [3, 'major', 'Flat three: dark lift'],
+    [1, 'major', 'Flat two: eerie, sideways'],
+    [7, 'major', 'Major five: strong pull home'],
+    [0, 'major', 'Major home: sudden light'],
+    [0, 'minor', 'Minor home: sudden shadow'],
+    [5, 'major', 'Major four: warm lift'],
+    [2, 'major', 'Major two: bright push to five'],
+    [4, 'major', 'Major three: uncanny shift'],
+    [6, 'dim', 'Sharp four diminished: squeezing tension'],
+    [0, 'aug', 'Augmented home: unsettled, rising']
+  ];
+
+  /**
+   * Chords to choose from in a key: { inKey: [...], color: [...] }.
+   * Each item: { token, name, fn, role }.
+   */
+  function chordPalette(key = 'C', mode = 'major') {
+    const steps = (MODES[mode] || MODES.major).steps;
+    const inKey = [1, 2, 3, 4, 5, 6, 7].map(degree => {
+      const token = numeral(degree, triadQuality(steps, degree));
+      const info = describeChord(token, key, mode);
+      return { token, name: info.name, fn: info.fn, role: info.role };
+    });
+    const color = [];
+    COLOR_CHORDS.forEach(([semis, quality, role]) => {
+      const { degree, accidental } = degreeOf(semis, steps);
+      const token = numeral(degree, quality, accidental);
+      const info = describeChord(token, key, mode);
+      if (info.diatonic || color.some(c => c.name === info.name)) return;
+      color.push({ token, name: info.name, fn: 'color', role });
+    });
+    return { inKey, color };
+  }
+
+  const NEXT = {
+    1: [[4, 'Lifts away from home'], [5, 'Builds tension'], [6, 'Turns wistful'], [2, 'Starts a journey']],
+    2: [[5, 'Classic two–five pull'], [7, 'Leans harder toward home'], [4, 'Steps up gently']],
+    3: [[6, 'Falls by a fifth'], [4, 'Steps up'], [2, 'Slides down']],
+    4: [[5, 'Pushes toward home'], [1, 'Amen: soft return home'], [6, 'Turns wistful'], [2, 'Settles back']],
+    5: [[1, 'Resolves home'], [6, 'Deceptive: dodges home'], [4, 'Softens back']],
+    6: [[4, 'Rises to the lift'], [2, 'Falls by a fifth'], [5, 'Builds tension'], [3, 'Steps down']],
+    7: [[1, 'Resolves up to home'], [3, 'Slips sideways'], [6, 'Steps down']]
+  };
+  const NEXT_FIRST = [[1, 'Start at home'], [6, 'Start in home’s shadow'], [4, 'Start on the lift']];
+  const NEXT_COLOR = { tonic: [8, 10, 3], predominant: [5, 1], dominant: [7, 0], color: [0, 7] };
+
+  /**
+   * Chords that would sound good after the given one (or to start with,
+   * when there is none). Each item: { token, name, fn, why }.
+   */
+  function suggestNext(previous, key = 'C', mode = 'major') {
+    const pal = chordPalette(key, mode);
+    const out = [];
+    const push = (item) => {
+      if (!out.some(o => o.name === item.name)) out.push(item);
+    };
+    let info = null;
+    if (previous) {
+      try { info = describeChord(previous, key, mode); } catch (e) { info = null; }
+    }
+    const table = !info ? NEXT_FIRST : info.diatonic ? NEXT[info.degree]
+      : [[1, 'Returns home'], [5, 'Back to tension'], [4, 'Lands on the lift']];
+    table.forEach(([degree, why]) => {
+      const c = pal.inKey[degree - 1];
+      push({ token: c.token, name: c.name, fn: c.fn, why });
+    });
+    if (info) {
+      (NEXT_COLOR[info.fn] || []).forEach(semis => {
+        const c = pal.color.find(x => describeSemis(x, key) === semis);
+        if (c) push({ token: c.token, name: c.name, fn: 'color', why: c.role });
+      });
+    }
+    return out.filter(o => !info || o.name !== info.name).slice(0, 6);
+  }
+
+  function describeSemis(item, key) {
+    return (parseChord(item.token, key, 'major').root - pitchClass(key) + 12) % 12;
+  }
+
+  const VARIANTS = {
+    major: [['', 'Plain', 'Bright and settled'], ['sus2', 'sus2', 'Open, airy'], ['sus4', 'sus4', 'Suspended, unresolved'],
+      ['add9', 'add9', 'Shimmering'], ['maj7', 'maj7', 'Dreamy, floating'], ['6', '6', 'Warm, nostalgic'],
+      ['7', '7', 'Bluesy pull'], ['5', '5', 'Hollow, neither major nor minor']],
+    minor: [['', 'Plain', 'Dark and settled'], ['7', 'm7', 'Soft, jazzy'], ['9', 'm9', 'Lush, smoky'],
+      ['add9', 'add9', 'Glassy sadness'], ['sus2', 'sus2', 'Open, airy'], ['sus4', 'sus4', 'Suspended, unresolved'],
+      ['6', 'm6', 'Noir, mysterious'], ['5', '5', 'Hollow, neither major nor minor']],
+    dim: [['', 'Plain', 'Tense, unstable'], ['7', 'dim7', 'Horror-movie tension']],
+    aug: [['', 'Plain', 'Unsettled, rising'], ['7', '7', 'Restless']]
+  };
+
+  /** Split a chord token into its head (root and quality) and the rest. */
+  function splitToken(token) {
+    let text = String(token).trim();
+    let length = '';
+    const lm = /:(\d*\.?\d+)$/.exec(text);
+    if (lm) { length = lm[0]; text = text.slice(0, lm.index); }
+    let slash = '';
+    const si = text.indexOf('/');
+    if (si > 0) { slash = text.slice(si); text = text.slice(0, si); }
+    const head = /^[b#♭♯]?(vii|VII|iii|III|vi|VI|iv|IV|ii|II|v|V|i|I)(°|o|ø|\+)?/.exec(text) ||
+      /^[A-G][#b♯♭]?(m(?!aj)|min|dim|aug|°|ø|\+|-)?/.exec(text);
+    if (!head) return null;
+    return { head: head[0], suffix: text.slice(head[0].length), slash, length };
+  }
+
+  /**
+   * Other flavours of the same chord (sus2, add9, maj7…).
+   * Each item: { token, name, label, why }.
+   */
+  function chordVariants(token, key = 'C', mode = 'major') {
+    const parts = splitToken(token);
+    if (!parts) return [];
+    let base = parts.head;
+    let quality;
+    try {
+      quality = qualityOf(parseChord(base, key, mode).intervals);
+    } catch (e) {
+      return [];
+    }
+    if (/ø/.test(base)) { base = base.replace('ø', '°'); quality = 'dim'; }
+    const out = [];
+    VARIANTS[quality].forEach(([suffix, label, why]) => {
+      const t = base + suffix + parts.slash + parts.length;
+      try {
+        out.push({ token: t, name: parseChord(t, key, mode).name, label, why });
+      } catch (e) { /* skip combinations the parser rejects */ }
+    });
+    return out;
+  }
+
+  /** Change how long a chord token lasts (1 = the normal chord length). */
+  function withLength(token, length) {
+    const base = String(token).replace(/:(\d*\.?\d+)$/, '');
+    return length === 1 ? base : `${base}:${length}`;
+  }
 
   // ---------------------------------------------------------------------------
   // Sound
@@ -589,6 +824,7 @@
   const AmbientChords = {
     MODES,
     PRESETS,
+    MOODS,
     DEFAULTS,
     NOTE_NAMES: SHARP_NAMES,
     FLAT_NAMES,
@@ -597,8 +833,15 @@
     noteName,
     parseChord,
     parseProgression,
+    tokenize,
     voiceChord,
-    keyPrefersFlats
+    keyPrefersFlats,
+    describeChord,
+    chordPalette,
+    suggestNext,
+    chordVariants,
+    splitToken,
+    withLength
   };
 
   const Mixer = root.AmbientMixer || (typeof require === 'function' ? safeRequire('./ambient-mixer.js') : null);

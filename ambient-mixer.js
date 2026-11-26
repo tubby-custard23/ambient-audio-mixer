@@ -476,6 +476,37 @@
     };
   };
 
+  /** A stereo level meter tapped from a node. */
+  function makeMeter(ctx, from) {
+    const splitter = ctx.createChannelSplitter(2);
+    const sides = [0, 1].map(ch => {
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 1024;
+      splitter.connect(analyser, ch);
+      return { analyser, data: new Float32Array(analyser.fftSize) };
+    });
+    from.connect(splitter);
+    return {
+      read() {
+        return sides.map(({ analyser, data }) => {
+          analyser.getFloatTimeDomainData(data);
+          let peak = 0;
+          let sum = 0;
+          for (let i = 0; i < data.length; i++) {
+            const v = data[i];
+            sum += v * v;
+            if (Math.abs(v) > peak) peak = Math.abs(v);
+          }
+          return { peak, rms: Math.sqrt(sum / data.length) };
+        });
+      },
+      disconnect() {
+        from.disconnect(splitter);
+        splitter.disconnect();
+      }
+    };
+  }
+
   /** Turn whatever addTrack() was given into source options. */
   function normalizeSource(source) {
     if (source == null) return { type: 'audio', src: null };
@@ -545,14 +576,12 @@
       const input = ctx.createGain();
       const chainOut = ctx.createGain();
       const gain = ctx.createGain();
-      const analyser = ctx.createAnalyser();
-      analyser.fftSize = 1024;
       gain.gain.value = this.masterVolume;
-      chainOut.connect(gain).connect(analyser).connect(ctx.destination);
+      chainOut.connect(gain).connect(ctx.destination);
       this.master = {
-        input, gain, analyser,
+        input, gain,
         chain: new EffectChain(ctx, input, chainOut),
-        meter: new Float32Array(analyser.fftSize)
+        meter: makeMeter(ctx, gain)
       };
     }
 
@@ -595,17 +624,15 @@
       const panner = ctx.createStereoPanner();
       const fader = ctx.createGain();
       const muter = ctx.createGain();
-      const analyser = ctx.createAnalyser();
-      analyser.fftSize = 1024;
       fader.gain.value = 0;
-      chainOut.connect(panner).connect(fader).connect(muter).connect(analyser).connect(this.master.input);
+      chainOut.connect(panner).connect(fader).connect(muter).connect(this.master.input);
 
       const track = {
         name,
         source: null,
         chain: new EffectChain(ctx, chainIn, chainOut),
-        panner, fader, muter, analyser,
-        meter: new Float32Array(analyser.fftSize),
+        panner, fader, muter,
+        meter: makeMeter(ctx, muter),
         volume: clamp(options.volume ?? 0, 0, 1),
         pan: clamp(options.pan ?? 0, -1, 1),
         mute: !!options.mute,
@@ -641,7 +668,8 @@
       track.source.stop();
       track.source.dispose();
       track.chain.dispose();
-      [track.panner, track.fader, track.muter, track.analyser].forEach(n => n.disconnect());
+      track.meter.disconnect();
+      [track.panner, track.fader, track.muter].forEach(n => n.disconnect());
       this.tracks.delete(name);
       Object.values(this.moods).forEach(mood => { delete mood[name]; });
       this.updateMutes();
@@ -767,20 +795,21 @@
 
     /**
      * Current output level of a track or the master bus.
-     * @returns {{ peak: number, rms: number }} linear values 0 to 1+
+     * @returns {{ peak, rms, left: { peak, rms }, right: { peak, rms } }}
+     *   linear values from 0 (peak can exceed 1 when clipping)
      */
     getLevel(name = MASTER) {
       const target = name === MASTER ? this.master : this.tracks.get(name);
-      if (!target || !this.isPlaying) return { peak: 0, rms: 0 };
-      target.analyser.getFloatTimeDomainData(target.meter);
-      let peak = 0;
-      let sum = 0;
-      for (let i = 0; i < target.meter.length; i++) {
-        const v = target.meter[i];
-        sum += v * v;
-        if (Math.abs(v) > peak) peak = Math.abs(v);
+      if (!target || !this.isPlaying) {
+        return { peak: 0, rms: 0, left: { peak: 0, rms: 0 }, right: { peak: 0, rms: 0 } };
       }
-      return { peak, rms: Math.sqrt(sum / target.meter.length) };
+      const [left, right] = target.meter.read();
+      return {
+        peak: Math.max(left.peak, right.peak),
+        rms: Math.sqrt((left.rms * left.rms + right.rms * right.rms) / 2),
+        left,
+        right
+      };
     }
 
     // ----- Effects -----------------------------------------------------------
@@ -1070,10 +1099,10 @@
     captureStream() {
       const ctx = this.getContext();
       const dest = ctx.createMediaStreamDestination();
-      this.master.analyser.connect(dest);
+      this.master.gain.connect(dest);
       return {
         stream: dest.stream,
-        release: () => this.master && this.master.analyser.disconnect(dest)
+        release: () => this.master && this.master.gain.disconnect(dest)
       };
     }
 

@@ -20,9 +20,9 @@ A lightweight JavaScript library for creating dynamic, atmospheric soundscapes o
 `studio/index.html` is a mixing desk built on the library. Open it in a browser (no build step or server needed) to:
 
 - add tracks from audio files (drag them onto the page), URLs, or generated noise
-- mix with faders, pan, mute and solo while watching live meters
-- add effects to any track or to the master bus, then reorder, bypass and tweak them (double-click a slider to reset it)
-- add chord progression tracks played by a synth pad or by your own samples
+- mix with faders, pan knobs, mute and solo while watching stereo LED meters; every track gets its own neon colour
+- add effects to any track or to the master bus, then reorder, bypass and tweak them. Knobs and faders turn by dragging up and down, scrolling or arrow keys; double-click resets them
+- add chord progression tracks played by a synth pad or by your own samples. Each chord is coloured by what it does in the key (stable, moving, tension, outside the key). **Add chord** suggests what could come next and lists the key's chords and outside colours; clicking a chord swaps its flavour (sus2, add9, maj7…), length or position; **Progression ideas** has 19 progressions grouped by mood, each explained
 - keep mixes: everything, including dropped audio files, is saved in your browser as you work, and the Mixes menu switches between them
 - export a mix as JSON and import it elsewhere (audio files aren't included; dropping a file with the same name reconnects it)
 - record what you hear to an audio file
@@ -121,7 +121,14 @@ mixer.updateTrackSource('Pad', { progression: 'i iv VI V' });
 
 Progressions accept Roman numerals relative to the key (`i`, `bVII`, `V7`, `ii°`, `viiø7`, `IVmaj7`, `Isus2`) and chord names (`Am`, `F#m7`, `Bbmaj7`, `Cadd9`, `G/B`). `Am:2` holds a chord for twice as long. Changes start with the next chord.
 
-`AmbientChords` exposes the theory helpers (`parseProgression`, `parseChord`, `voiceChord`, `noteFromName`, `PRESETS`, `MODES`).
+`AmbientChords` exposes the theory helpers: `parseProgression`, `parseChord`, `voiceChord`, `noteFromName`, `PRESETS` (with `mood` and `about`), `MODES`, plus
+
+| Helper | Returns |
+|--------|---------|
+| `describeChord(token, key, mode)` | `{ name, numeral, degree, diatonic, fn, role }`, where `fn` is `tonic`, `predominant`, `dominant` or `color` |
+| `chordPalette(key, mode)` | `{ inKey, color }`: the key's seven chords, and outside chords that work in most keys |
+| `suggestNext(token, key, mode)` | Chords that would sound good next, each with a reason |
+| `chordVariants(token, key, mode)` | The same chord as sus2, sus4, add9, 7, maj7… |
 
 ## Finding Royalty-Free Audio
 

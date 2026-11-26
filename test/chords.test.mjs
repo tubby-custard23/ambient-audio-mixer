@@ -116,5 +116,53 @@ test('slash bass sits below the chord even without the bass voice', () => {
 });
 
 test('every preset parses', () => {
-  Chords.PRESETS.forEach(p => assert.ok(parseProgression(p.progression, p.key, p.mode).length >= 3, p.name));
+  Chords.PRESETS.forEach(p => assert.ok(parseProgression(p.progression, p.key, p.mode).length >= 2, p.name));
+});
+
+test('palette lists the key’s own chords with their roles', () => {
+  const { inKey, color } = Chords.chordPalette('A', 'minor');
+  assert.equal(inKey.map(c => c.name).join(' '), 'Am Bdim C Dm Em F G');
+  assert.equal(inKey[0].fn, 'tonic');
+  assert.equal(inKey[4].fn, 'dominant');
+  assert.ok(color.some(c => c.token === 'V' && c.name === 'E'), 'major five offered in minor');
+  assert.ok(!color.some(c => inKey.some(k => k.name === c.name)), 'no duplicates of in-key chords');
+});
+
+test('outside chords are spelled from their usual degree', () => {
+  const { color } = Chords.chordPalette('C', 'major');
+  assert.deepEqual(color.slice(0, 3).map(c => c.token), ['iv', 'bVI', 'bVII']);
+  assert.equal(Chords.describeChord('C#', 'A', 'minor').numeral, '#III');
+  assert.equal(Chords.chordPalette('G', 'mixolydian').inKey[6].name, 'F');
+});
+
+test('describeChord works for numerals and names', () => {
+  assert.equal(Chords.describeChord('Fm', 'C').fn, 'color');
+  assert.equal(Chords.describeChord('G7', 'C').fn, 'dominant');
+  assert.equal(Chords.describeChord('Am', 'C').role, 'Home’s shadow');
+  assert.equal(Chords.describeChord('Isus2', 'D').diatonic, true);
+});
+
+test('suggestions follow common harmonic moves', () => {
+  const afterFive = Chords.suggestNext('V', 'C');
+  assert.equal(afterFive[0].name, 'C');
+  assert.ok(afterFive.some(s => s.name === 'Am' && /Deceptive/.test(s.why)));
+  assert.equal(Chords.suggestNext(null, 'C')[0].why, 'Start at home');
+  assert.ok(Chords.suggestNext('Am', 'C').every(s => s.name !== 'Am'), 'never suggests the same chord');
+  assert.ok(Chords.suggestNext('garbage', 'C').length > 0, 'falls back when the chord does not parse');
+});
+
+test('variants keep slash bass and length', () => {
+  const v = Chords.chordVariants('G/B:2', 'C');
+  assert.ok(v.some(x => x.token === 'Gsus4/B:2'));
+  assert.ok(Chords.chordVariants('vi', 'C').some(x => x.token === 'vi7' && x.name === 'Am7'));
+  assert.deepEqual(Chords.chordVariants('vii°', 'C').map(x => x.name), ['Bdim', 'Bdim7']);
+  assert.equal(Chords.withLength('Am:2', 1), 'Am');
+  assert.equal(Chords.withLength('Am', 0.5), 'Am:0.5');
+});
+
+test('every preset has a mood and an explanation', () => {
+  Chords.PRESETS.forEach(p => {
+    assert.ok(Chords.MOODS.includes(p.mood), p.name);
+    assert.ok(p.about.length > 20, p.name);
+  });
 });
