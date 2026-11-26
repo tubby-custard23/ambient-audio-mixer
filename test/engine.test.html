@@ -50,6 +50,18 @@
       mixer.destroy();
     });
 
+    test('levels are reported per channel', async () => {
+      const mixer = new AmbientMixer({ autoMood: false, fadeTime: 0.02, masterVolume: 1 });
+      mixer.addTrack('left', { type: 'noise', color: 'white' }, { volume: 1, pan: -1 });
+      mixer.play();
+      await new Promise(r => setTimeout(r, 400));
+      const level = mixer.getLevel('left');
+      assert(level.left.rms > 0.05, `left ${level.left.rms}`);
+      assert(level.right.rms < 0.01, `right ${level.right.rms}`);
+      assert(mixer.getLevel().left.peak > 0.05, 'master left');
+      mixer.destroy();
+    });
+
     test('legacy fadeSpeed maps to a fade time', () => {
       const mixer = new AmbientMixer({ fadeSpeed: 0.02 });
       near(mixer.fadeTime, 2.5, 1e-9);
